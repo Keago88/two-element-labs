@@ -219,9 +219,22 @@ export function ReferenceExperience({
     const initialFrame = requestAnimationFrame(() => {
       hash();
       paint();
+      try {
+        const warm = document.createElement("canvas");
+        warm.width = 1;
+        warm.height = 1;
+        warm.getContext("webgl", {
+          alpha: true,
+          antialias: false,
+          depth: false,
+          stencil: false,
+        });
+      } catch {
+        /* software GL warms on first context; ignore failures */
+      }
       const bootGalaxy = () => startGalaxy();
       if (typeof requestIdleCallback === "function") {
-        requestIdleCallback(bootGalaxy, { timeout: 500 });
+        requestIdleCallback(bootGalaxy, { timeout: 400 });
       } else {
         setTimeout(bootGalaxy, 0);
       }

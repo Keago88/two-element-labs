@@ -80,11 +80,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className={`${dmSans.variable} ${dmSans.className} flex min-h-svh flex-col bg-background text-foreground`}
       >
         <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var c=document.createElement("canvas");c.width=1;c.height=1;c.getContext("webgl",{alpha:!0,antialias:!1,depth:!1,stencil:!1})}catch(e){}`,
-          }}
-        />
-        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
