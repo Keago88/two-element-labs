@@ -15,10 +15,6 @@ export default function PrivacyPage() {
       <h1 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
         Privacy
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Stub policy for the marketing site. Replace with counsel-reviewed copy
-        before collecting real client data at volume.
-      </p>
       <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
         <p>
           Two Element Media is a Cape Town studio. If you send a brief through
