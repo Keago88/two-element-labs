@@ -204,8 +204,10 @@ button:focus-visible {
 }
 .header-contact {
   margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
   width: var(--header);
-  height: 100%;
+  height: var(--header);
   display: grid;
   place-items: center;
   background: #111;

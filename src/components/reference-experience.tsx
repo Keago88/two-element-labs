@@ -215,19 +215,17 @@ export function ReferenceExperience({
         navigate(chapters[index], false),
       );
     };
-    const startGalaxyOnce = () => {
-      if (window.scrollY < 16) return;
-      window.removeEventListener("scroll", startGalaxyOnce);
-      startGalaxy();
-      queue();
-    };
     configure();
     const initialFrame = requestAnimationFrame(() => {
       hash();
       paint();
-      if (window.scrollY > 16) startGalaxyOnce();
+      const bootGalaxy = () => startGalaxy();
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(bootGalaxy, { timeout: 500 });
+      } else {
+        setTimeout(bootGalaxy, 0);
+      }
     });
-    window.addEventListener("scroll", startGalaxyOnce, { passive: true });
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", resize);
     window.addEventListener("hashchange", hash);
@@ -236,7 +234,6 @@ export function ReferenceExperience({
     reduced.addEventListener("change", resize);
     return () => {
       galaxy?.destroy();
-      window.removeEventListener("scroll", startGalaxyOnce);
       cancelAnimationFrame(frame);
       cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(resizeFrame);
