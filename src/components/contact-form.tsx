@@ -49,7 +49,7 @@ export function ContactForm({
   const [delivered, setDelivered] = useState(true);
   const [serverMessage, setServerMessage] = useState(
     initialError
-      ? "Something went wrong, please try again later."
+      ? "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222."
       : "",
   );
 
@@ -87,7 +87,7 @@ export function ContactForm({
         if (data.errors) setErrors(data.errors);
         throw new Error(
           data.error ??
-            "Something went wrong, please try again later.",
+            "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222.",
         );
       }
 
@@ -99,7 +99,7 @@ export function ContactForm({
       setServerMessage(
         error instanceof Error
           ? error.message
-          : "Something went wrong, please try again later.",
+          : "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222.",
       );
     }
   }
