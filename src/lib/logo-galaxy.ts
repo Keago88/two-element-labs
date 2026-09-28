@@ -117,11 +117,10 @@ varying float v_alpha;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = dot(p, p);
-  float glow = exp(-d * 3.2) * step(d, 1.0);
-  float core = exp(-d * 14.0) * step(d, 1.0);
-  vec3 col = v_color * (0.45 * glow + 1.2 * core);
+  float glow = max(0.0, 1.0 - d);
+  glow *= glow;
   float alpha = v_alpha * glow;
-  gl_FragColor = vec4(col * alpha, alpha);
+  gl_FragColor = vec4(v_color * alpha, alpha);
 }
 `;
 
