@@ -458,8 +458,22 @@ export function createLogoGalaxy({
   let lastLogoX = "";
   let lastLogoY = "";
   let lastLogoSize = "";
+  let lastAssembleCss = "";
   let cachedLogo: { x: number; y: number; size: number } | null = null;
   let heroFast = false;
+  const live: {
+    journey: number;
+    assemble: number;
+    starCount: number;
+    horizontal: boolean;
+    census: ReturnType<typeof censusOf> | null;
+  } = {
+    journey: 0,
+    assemble: 0,
+    starCount: 0,
+    horizontal: false,
+    census: null,
+  };
   const start = performance.now();
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
@@ -499,9 +513,15 @@ export function createLogoGalaxy({
     gl.bindBuffer(gl.ARRAY_BUFFER, stars);
     gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
     attribsBound = false;
-    (
-      window as Window & { __gatherCensus?: ReturnType<typeof censusOf> }
-    ).__gatherCensus = censusOf(field.data, field.count);
+    const census = censusOf(field.data, field.count);
+    live.census = census;
+    live.starCount = field.count;
+    const debug = window as Window & {
+      __gatherCensus?: ReturnType<typeof censusOf>;
+      __gatherLive?: typeof live;
+    };
+    debug.__gatherCensus = census;
+    debug.__gatherLive = live;
   };
 
   const measure = () => {
@@ -565,6 +585,14 @@ export function createLogoGalaxy({
     }
     const logo = cachedLogo;
     writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
+    const assembleCss = assemble.toFixed(3);
+    if (assembleCss !== lastAssembleCss) {
+      lastAssembleCss = assembleCss;
+      host.style.setProperty("--assemble", assembleCss);
+    }
+    live.journey = lastJourney;
+    live.assemble = assemble;
+    live.horizontal = lastHorizontal;
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
 
@@ -667,6 +695,8 @@ export function createLogoGalaxy({
       if (reduced) {
         stop();
         host.style.setProperty("--logo-resolved", "1");
+        host.style.setProperty("--assemble", "1");
+        lastAssembleCss = "1";
       } else {
         play();
       }
@@ -694,6 +724,7 @@ export function createLogoGalaxy({
       host.style.removeProperty("--logo-x");
       host.style.removeProperty("--logo-y");
       host.style.removeProperty("--logo-size");
+      host.style.removeProperty("--assemble");
     },
   };
 }
