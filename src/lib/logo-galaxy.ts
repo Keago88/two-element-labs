@@ -215,7 +215,7 @@ function budgets(width: number) {
   if (width < 951) {
     return { far: 640, spiral: 880, near: 100, logo: 360 };
   }
-  return { far: 1000, spiral: 1200, near: 140, logo: 420 };
+  return { far: 720, spiral: 900, near: 90, logo: 280 };
 }
 
 function starColor(rand: () => number, accent: boolean): [number, number, number] {
@@ -635,7 +635,8 @@ export function createLogoGalaxy({
     host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
-    const copies = copyNodes();
+    const copies =
+      lastJourney > 0.35 || lastHorizontal ? copyNodes() : [null, null, null];
     const r0 = copyRect(copies[0]);
     const r1 = copyRect(copies[1]);
     const r2 = copyRect(copies[2]);

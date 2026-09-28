@@ -508,11 +508,16 @@ button:focus-visible {
 .experience .contact-socials a {
   color: #f2f2ec;
 }
-.experience[data-horizontal="false"] .scene-contact .editorial-title,
 .experience[data-horizontal="false"] .scene-contact .contact-bottom,
 .experience[data-horizontal="false"] .scene-contact .contact-socials {
-  background: rgb(5 7 13 / 62%);
-  box-shadow: 0 0 40px 22px rgb(5 7 13 / 62%);
+  background: #05070d;
+  box-shadow: 0 0 40px 22px #05070d;
+}
+.experience .scene-contact .editorial-title {
+  width: fit-content;
+  max-width: 100%;
+  background: #05070d;
+  box-shadow: 0 0 56px 40px #05070d;
 }
 .experience .contact-bottom p,
 .experience .contact-email,
