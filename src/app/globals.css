@@ -277,15 +277,13 @@ button:focus-visible {
   background:
     radial-gradient(ellipse 24% 14% at 68% 46%, rgba(222, 70, 37, 0.07), transparent 58%),
     radial-gradient(ellipse 42% 18% at 72% 56%, rgba(180, 140, 90, 0.05), transparent 62%);
-  animation: galaxy-drift 140s linear infinite;
 }
 .logo-galaxy::after {
   background:
-    radial-gradient(circle at 28% 32%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 28% 32%, rgba(255, 220, 180, 0.045) 0 1px, transparent 1.6px),
     radial-gradient(circle at 71% 61%, rgba(255, 220, 180, 0.035) 0 1px, transparent 1.6px);
   background-size: 260px 260px, 410px 410px;
   opacity: 0.7;
-  animation: galaxy-drift 200s linear infinite reverse;
 }
 .logo-galaxy canvas {
   position: relative;
