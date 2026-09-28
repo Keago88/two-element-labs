@@ -258,10 +258,10 @@ button:focus-visible {
   isolation: isolate;
   background-color: #05070d;
   background-image:
-    radial-gradient(ellipse 48% 36% at 64% 46%, rgba(222, 70, 37, 0.2), transparent 64%),
-    radial-gradient(ellipse 26% 20% at 57% 51%, rgba(222, 140, 90, 0.12), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 74% 36%, rgba(72, 108, 168, 0.14), transparent 72%),
-    radial-gradient(ellipse 70% 55% at 28% 72%, rgba(36, 58, 110, 0.12), transparent 75%);
+    radial-gradient(ellipse 48% 36% at 72% 46%, rgba(222, 70, 37, 0.1), transparent 64%),
+    radial-gradient(ellipse 26% 20% at 66% 51%, rgba(222, 140, 90, 0.06), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 78% 36%, rgba(72, 108, 168, 0.1), transparent 72%),
+    radial-gradient(ellipse 70% 55% at 22% 78%, rgba(36, 58, 110, 0.06), transparent 75%);
 }
 .logo-galaxy::before,
 .logo-galaxy::after {
@@ -273,8 +273,8 @@ button:focus-visible {
 }
 .logo-galaxy::before {
   background:
-    radial-gradient(ellipse 24% 14% at 52% 46%, rgba(222, 70, 37, 0.11), transparent 58%),
-    radial-gradient(ellipse 42% 18% at 64% 56%, rgba(180, 140, 90, 0.07), transparent 62%);
+    radial-gradient(ellipse 24% 14% at 68% 46%, rgba(222, 70, 37, 0.07), transparent 58%),
+    radial-gradient(ellipse 42% 18% at 72% 56%, rgba(180, 140, 90, 0.05), transparent 62%);
   animation: galaxy-drift 140s linear infinite;
 }
 .logo-galaxy::after {
@@ -508,11 +508,17 @@ button:focus-visible {
 .experience .contact-socials a {
   color: #f2f2ec;
 }
+.experience[data-horizontal="false"] .scene-contact .editorial-title,
+.experience[data-horizontal="false"] .scene-contact .contact-bottom,
+.experience[data-horizontal="false"] .scene-contact .contact-socials {
+  background: rgb(5 7 13 / 62%);
+  box-shadow: 0 0 40px 22px rgb(5 7 13 / 62%);
+}
 .experience .contact-bottom p,
 .experience .contact-email,
 .experience .contact-socials a,
 .experience .scene-contact .editorial-title {
-  text-shadow: 0 0 14px #05070d, 0 1px 22px #05070d;
+  text-shadow: 0 0 16px #05070d, 0 1px 28px #05070d, 0 0 42px #05070d;
 }
 .home-bottom,
 .contact-bottom {
@@ -1061,4 +1067,5 @@ body:not(:has(.experience)) main {
 .experience[data-horizontal="true"] .scene-window {
   height: 100%;
   clip-path: inset(0 44% 0 0);
+  background: rgb(5 7 13 / 70%);
 }
