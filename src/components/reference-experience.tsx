@@ -260,6 +260,9 @@ export function ReferenceExperience({
     <>
       <div ref={host} className="experience" data-horizontal={horizontal}>
         <div className="logo-galaxy" aria-hidden="true">
+          <div className="logo-galaxy-fade">
+            <div className="logo-galaxy-fade-dots" />
+          </div>
           <canvas ref={galaxyCanvas} />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

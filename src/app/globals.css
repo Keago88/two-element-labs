@@ -267,25 +267,31 @@ button:focus-visible {
     radial-gradient(ellipse 70% 55% at 28% 72%, rgba(36, 58, 110, 0.12), transparent 75%);
 }
 .logo-galaxy::before,
-.logo-galaxy::after {
-  content: "";
+.logo-galaxy-fade {
   position: absolute;
   inset: -45%;
   pointer-events: none;
   z-index: 0;
 }
 .logo-galaxy::before {
+  content: "";
   background:
     radial-gradient(ellipse 24% 14% at 52% 46%, rgba(255, 120, 70, 0.12), transparent 58%),
     radial-gradient(ellipse 42% 18% at 64% 56%, rgba(180, 140, 90, 0.07), transparent 62%);
   animation: galaxy-drift 140s linear infinite;
 }
-.logo-galaxy::after {
+.logo-galaxy-fade {
+  opacity: 0.7;
+  will-change: opacity;
+  transform: translateZ(0);
+}
+.logo-galaxy-fade-dots {
+  position: absolute;
+  inset: 0;
   background:
     radial-gradient(circle at 28% 32%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1.6px),
     radial-gradient(circle at 71% 61%, rgba(255, 220, 180, 0.035) 0 1px, transparent 1.6px);
   background-size: 260px 260px, 410px 410px;
-  opacity: calc(0.7 * (1 - var(--assemble, 0)));
   animation: galaxy-drift 200s linear infinite reverse;
 }
 .logo-galaxy canvas {
@@ -447,7 +453,7 @@ button:focus-visible {
     display: none;
   }
   .logo-galaxy::before,
-  .logo-galaxy::after {
+  .logo-galaxy-fade-dots {
     animation: none;
   }
   .logo-galaxy-static,
