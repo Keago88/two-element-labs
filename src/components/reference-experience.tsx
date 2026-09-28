@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
-import type { LogoGalaxy } from "@/lib/logo-galaxy";
+import { createLogoGalaxy } from "@/lib/logo-galaxy";
 import { mailtoHref, site } from "@/lib/site";
 
 const chapters = ["home", "about", "services", "contact"];
@@ -69,21 +69,13 @@ export function ReferenceExperience({
     const el = host.current;
     if (!el) return;
     const panels = Array.from(el.querySelectorAll<HTMLElement>(".scene"));
-    let galaxy: LogoGalaxy | null = null;
-    const startGalaxy = () => {
-      if (galaxy || !galaxyCanvas.current) return;
-      void import("@/lib/logo-galaxy").then(({ createLogoGalaxy }) => {
-        if (galaxy || !galaxyCanvas.current) return;
-        galaxy = createLogoGalaxy({
+    const galaxy = galaxyCanvas.current
+      ? createLogoGalaxy({
           canvas: galaxyCanvas.current,
           dock: galaxyDock.current,
           host: el,
-        });
-        galaxy.setReduced(reduced.matches);
-        galaxy.resize();
-        queue();
-      });
-    };
+        })
+      : null;
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
       "(min-width: 951px) and (min-height: 650px)",
@@ -186,7 +178,7 @@ export function ReferenceExperience({
         : panels[index].getBoundingClientRect().top + window.scrollY - 64;
       window.scrollTo({
         top: Math.max(0, destination),
-        behavior: smooth && !reduced.matches ? "smooth" : "auto",
+        behavior: smooth && !reduced.matches ? "smooth" : "instant",
       });
     };
     const click = (event: MouseEvent) => {
@@ -219,25 +211,6 @@ export function ReferenceExperience({
     const initialFrame = requestAnimationFrame(() => {
       hash();
       paint();
-      try {
-        const warm = document.createElement("canvas");
-        warm.width = 1;
-        warm.height = 1;
-        warm.getContext("webgl", {
-          alpha: true,
-          antialias: false,
-          depth: false,
-          stencil: false,
-        });
-      } catch {
-        /* software GL warms on first context; ignore failures */
-      }
-      const bootGalaxy = () => startGalaxy();
-      if (typeof requestIdleCallback === "function") {
-        requestIdleCallback(bootGalaxy, { timeout: 400 });
-      } else {
-        setTimeout(bootGalaxy, 0);
-      }
     });
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", resize);
@@ -289,9 +262,10 @@ export function ReferenceExperience({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="logo-galaxy-lock"
+            src="/logo-mark-alpha.png"
             alt=""
-            width={320}
-            height={320}
+            width={1192}
+            height={1192}
             decoding="async"
           />
         </div>
@@ -460,10 +434,12 @@ export function ReferenceExperience({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     className="logo-galaxy-static"
+                    src="/logo-mark-alpha.png"
                     alt=""
-                    width={320}
-                    height={320}
+                    width={1192}
+                    height={1192}
                     decoding="async"
+                    loading="lazy"
                   />
                 </div>
                 <div className="contact-bottom">
