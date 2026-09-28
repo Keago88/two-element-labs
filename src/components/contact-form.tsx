@@ -46,7 +46,6 @@ export function ContactForm({
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >(initialSuccess ? "success" : initialError ? "error" : "idle");
-  const [delivered, setDelivered] = useState(true);
   const [serverMessage, setServerMessage] = useState(
     initialError
       ? "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222."
@@ -91,7 +90,6 @@ export function ContactForm({
         );
       }
 
-      setDelivered(Boolean(data.delivered));
       setStatus("success");
       setValues(empty);
     } catch (error) {
@@ -110,9 +108,9 @@ export function ContactForm({
         <CheckCircle2 />
         <AlertTitle className="font-heading text-lg">Brief received</AlertTitle>
         <AlertDescription className="mt-2 text-muted-foreground">
-          {delivered
-            ? "We’ll reply from Cape Town within one business day."
-            : "Your brief is in. Email delivery is not configured on this environment yet — try sending again in a moment so nothing sits in a log."}
+          Thanks, we&apos;ve got your enquiry. We&apos;ll read it and get back to
+          you by email or WhatsApp, Monday to Friday between 9:00 and 17:00. If
+          it&apos;s urgent, WhatsApp us on +27 68 616 0222.
         </AlertDescription>
         <Button
           type="button"
