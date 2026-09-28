@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Script from "next/script";
 import { DM_Sans } from "next/font/google";
 import { DevBadge } from "@/components/dev-badge";
 import { SiteFooter } from "@/components/site-footer";
@@ -79,6 +80,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body
         className={`${dmSans.variable} ${dmSans.className} flex min-h-svh flex-col bg-background text-foreground`}
       >
+        <Script id="gl-warm" strategy="beforeInteractive">
+          {`try{const c=document.createElement("canvas");c.width=1;c.height=1;c.getContext("webgl",{alpha:!0,antialias:!1,depth:!1,stencil:!1})}catch(e){}`}
+        </Script>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
