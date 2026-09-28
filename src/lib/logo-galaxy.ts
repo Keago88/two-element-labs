@@ -473,6 +473,8 @@ export function createLogoGalaxy({
   const start = performance.now();
   let shownAssemble = 0;
   let lastNow = start;
+  let settleTarget = 0;
+  let settleStarted = start;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -580,9 +582,15 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
+    if (target !== settleTarget) {
+      settleTarget = target;
+      settleStarted = now;
+    }
     const follow = 1 - Math.exp(-dt / 90);
     shownAssemble += (target - shownAssemble) * follow;
-    if (Math.abs(target - shownAssemble) < 0.002) shownAssemble = target;
+    if (Math.abs(target - shownAssemble) < 0.002 || now - settleStarted >= 140) {
+      shownAssemble = target;
+    }
     const assemble = shownAssemble;
     if (!lastHorizontal) {
       measure();
