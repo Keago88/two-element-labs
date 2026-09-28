@@ -622,9 +622,8 @@ export function createLogoGalaxy({
     const time = (now - start) / 1000;
     drawn = true;
     const assemble = assembleT(lastJourney);
-    if (assemble > 0.42 || lastJourney > 0.55 || reduced) {
+    if (assemble > 0.42 || lastJourney > 0.55) {
       measure();
-      ensureOverlay();
     }
     const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
@@ -712,14 +711,14 @@ export function createLogoGalaxy({
     samples = sampleOfficialMark(markImage);
     overlaySrc = knockOutMark();
     uploadStars();
-    if (reduced) ensureOverlay();
+    ensureOverlay();
     play();
   });
   markImage.src = MARK_SRC;
   if (markImage.complete && markImage.naturalWidth) {
     samples = sampleOfficialMark(markImage);
     overlaySrc = knockOutMark();
-    if (reduced) ensureOverlay();
+    ensureOverlay();
   }
 
   const boot =
