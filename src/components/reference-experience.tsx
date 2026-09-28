@@ -121,9 +121,21 @@ export function ReferenceExperience({
         panels[3].offsetHeight -
         window.innerHeight +
         52;
-      const journey = isHorizontal
-        ? progress / 3
-        : clamp(window.scrollY / Math.max(1, end));
+      let journey = progress / 3;
+      if (!isHorizontal) {
+        const y = window.scrollY;
+        const servicesStart = Math.max(
+          0,
+          panels[2].getBoundingClientRect().top + y - window.innerHeight * 0.42,
+        );
+        journey =
+          y <= servicesStart
+            ? ((2 / 3) * y) / Math.max(1, servicesStart)
+            : 2 / 3 +
+              ((1 / 3) * (y - servicesStart)) /
+                Math.max(1, end - servicesStart);
+        journey = clamp(journey);
+      }
       galaxy?.setReduced(reduced.matches);
       if (!reduced.matches) galaxy?.draw(journey, isHorizontal);
       const index = Math.round(progress);

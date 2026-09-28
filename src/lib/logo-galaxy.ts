@@ -50,9 +50,7 @@ void main() {
 
   float t = clamp((u_assemble - delay) / max(0.18, 1.0 - delay), 0.0, 1.0);
   t = t * t * (3.0 - 2.0 * t);
-  float layerPull = pull * t;
-  float farKeep = 1.0 - smoothstep(0.7, 1.0, layer);
-  float spin = u_spin * mix(0.15, 1.0, layer) * (1.0 - t * 0.85);
+  float spin = u_spin * mix(0.15, 1.0, layer) * (1.0 - t);
   float swirl = (1.0 - t) * (0.35 + depth * 0.4);
   float ang = theta + spin + swirl;
   float maxR = length(u_res) * 0.5;
@@ -62,11 +60,10 @@ void main() {
   far += vec2(
     sin(u_time * 0.017 + theta) * 6.0,
     cos(u_time * 0.013 + radius * 8.0) * 4.0
-  ) * (1.0 - t * 0.3);
+  ) * (1.0 - t);
   vec2 field = mix(far, spiral, clamp(layer, 0.0, 1.0));
   vec2 logoPos = u_logo.xy + logoUV * u_logo.z;
-  vec2 pos = mix(field, logoPos, layerPull);
-  pos = mix(pos, field, farKeep * 0.92);
+  vec2 pos = mix(field, logoPos, t * pull);
 
   vec2 clip = (pos / u_res) * 2.0 - 1.0;
   clip.y *= -1.0;
@@ -76,7 +73,7 @@ void main() {
   float perspective = mix(0.7, 1.35, depth);
   float point = size * perspective * tw * u_dpr;
   point *= mix(1.0, 1.25, layer);
-  point *= mix(1.0, 0.55, t * pull);
+  point *= mix(1.0, 0.55, t);
   gl_PointSize = clamp(point, 1.0, u_maxSize);
 
   float contentDim = 1.0;
@@ -87,9 +84,8 @@ void main() {
     contentDim = mix(0.42, 1.0, t);
   }
 
-  float fadeFar = mix(1.0, 0.55, t * (1.0 - pull));
-  v_color = color;
-  v_alpha = bright * tw * contentDim * fadeFar * mix(0.55, 1.0, layer);
+  v_color = mix(color, vec3(0.96, 0.97, 1.0), t);
+  v_alpha = bright * tw * contentDim * mix(mix(0.55, 1.0, layer), 1.0, t);
 }
 `;
 
@@ -129,15 +125,37 @@ function mulberry32(seed: number) {
   };
 }
 
+const SERVICES_START = 2 / 3;
+
+function censusOf(data: Float32Array, count: number) {
+  let unfinished = 0;
+  let stray = 0;
+  let maxDelay = 0;
+  for (let i = 0; i < count; i += 1) {
+    const o = i * FLOATS;
+    const delay = data[o + 7];
+    const pull = data[o + 13];
+    const u = data[o + 4];
+    const v = data[o + 5];
+    maxDelay = Math.max(maxDelay, delay);
+    const t = clamp((1 - delay) / Math.max(0.18, 1 - delay));
+    if (t < 0.999 || pull < 0.999) unfinished += 1;
+    if (pull < 0.999 || u < 0 || u > 1 || v < 0 || v > 1) stray += 1;
+  }
+  return {
+    total: count,
+    inMark: count - stray,
+    stray,
+    unfinished,
+    maxDelay: Number(maxDelay.toFixed(4)),
+  };
+}
+
+export type GatherCensus = ReturnType<typeof censusOf>;
+
 function assembleT(journey: number) {
-  const t = clamp(journey);
-  const mapped =
-    t < 0.18
-      ? (t / 0.18) * 0.04
-      : t < 0.62
-        ? 0.04 + ((t - 0.18) / 0.44) * 0.36
-        : 0.4 + ((t - 0.62) / 0.38) * 0.6;
-  return smoothstep(mapped);
+  if (journey <= SERVICES_START) return 0;
+  return smoothstep((journey - SERVICES_START) / (1 - SERVICES_START));
 }
 
 function budgets(width: number, dpr: number) {
@@ -211,7 +229,13 @@ function buildField(
   const { far, spiral, near, logo } = budgets(width, dpr);
   const count = far + spiral + near + (samples.length ? logo : 0);
   const data = new Float32Array(count * FLOATS);
+  const stroke = samples.filter((s) => s.kind === 1);
+  const markOf = (n: number): Sample =>
+    stroke.length
+      ? stroke[n % stroke.length]
+      : { u: 0.5, v: 0.5, lum: 1, kind: 1 };
   let i = 0;
+  let markIndex = 0;
   const push = (
     layer: number,
     pull: number,
@@ -239,13 +263,16 @@ function buildField(
   };
 
   for (let n = 0; n < far; n += 1) {
-    push(0, 0, {
+    const mark = markOf(markIndex++);
+    push(0, 1, {
       theta: rand() * Math.PI * 2,
       radius: 0.2 + rand() * 0.95,
       z: rand() * 0.45,
       size: 1.1 + rand() * 2.2,
       bright: 0.16 + rand() * 0.35,
-      delay: 0.4 + rand() * 0.4,
+      delay: 0.22 + rand() * 0.4,
+      u: mark.u,
+      v: mark.v,
       farX: rand(),
       farY: rand(),
       color: starColor(rand, rand() < 0.04),
@@ -259,15 +286,16 @@ function buildField(
       along * 5.6 + arm * 2.094395 + (rand() - 0.5) * (0.05 + along * 0.14);
     const radius = 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.03;
     const core = along < 0.16;
-    push(1, samples.length ? 0.22 + rand() * 0.2 : 0, {
+    const mark = markOf(markIndex++);
+    push(1, 1, {
       theta,
       radius,
       z: 0.35 + rand() * 0.5,
       size: core ? 6 + rand() * 6 : 1.8 + rand() * 3.4,
       bright: core ? 1 : 0.35 + rand() * 0.5,
-      delay: along * 0.18 + rand() * 0.08,
-      u: 0.5 + (rand() - 0.5) * 0.3,
-      v: 0.52 + (rand() - 0.5) * 0.3,
+      delay: 0.08 + along * 0.28 + rand() * 0.08,
+      u: mark.u,
+      v: mark.v,
       color: starColor(rand, rand() < 0.1),
       farX: 0.5 + Math.cos(theta) * radius * 0.5,
       farY: 0.48 + Math.sin(theta) * radius * 0.42,
@@ -277,13 +305,16 @@ function buildField(
   for (let n = 0; n < near; n += 1) {
     const arm = n % 3;
     const along = rand() ** 0.7;
-    push(2, 0.12, {
+    const mark = markOf(markIndex++);
+    push(2, 1, {
       theta: along * 5.2 + arm * 2.094395 + (rand() - 0.5) * 0.2,
       radius: 0.12 + along * 0.85,
       z: 0.7 + rand() * 0.3,
       size: 3.2 + rand() * 5.5,
       bright: 0.45 + rand() * 0.5,
-      delay: 0.08 + rand() * 0.2,
+      delay: 0.1 + rand() * 0.32,
+      u: mark.u,
+      v: mark.v,
       color: starColor(rand, rand() < 0.16),
       farX: rand(),
       farY: rand(),
@@ -291,40 +322,29 @@ function buildField(
   }
 
   if (samples.length) {
-    const stroke = samples.filter((s) => s.kind === 1);
-    const field = samples.filter((s) => s.kind === 0);
-    const strokeN = Math.round(logo * 0.78);
-    const take = (pool: Sample[], n: number) => {
-      if (!pool.length) return;
-      const stride = Math.max(1, pool.length / n);
-      for (let s = 0; s < n; s += 1) {
-        const sample = pool[Math.min(pool.length - 1, Math.floor(s * stride))];
-        const lx = sample.u - 0.5;
-        const ly = sample.v - 0.52;
-        const ang = Math.atan2(ly, lx);
-        const rad = Math.hypot(lx, ly);
-        const arm = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 3) % 3;
-        const along = clamp(rad / 0.48);
-        push(1, 1, {
-          theta: along * 5.6 + arm * 2.094395 + (rand() - 0.5) * 0.1,
-          radius: 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.02,
-          z: 0.45 + rand() * 0.4,
-          size: sample.kind === 1 ? 2.2 + sample.lum * 2.4 : 1.6,
-          bright: 0.55 + sample.lum * 0.45,
-          delay: along * 0.12 + rand() * 0.06,
-          u: sample.u,
-          v: sample.v,
-          color:
-            sample.kind === 1
-              ? ([0.96, 0.97, 1] as [number, number, number])
-              : ([0.08, 0.09, 0.12] as [number, number, number]),
-          farX: 0.5 + Math.cos(ang) * 0.4,
-          farY: 0.48 + Math.sin(ang) * 0.34,
-        });
-      }
-    };
-    take(stroke, strokeN);
-    take(field, logo - strokeN);
+    const strokeN = logo;
+    for (let s = 0; s < strokeN; s += 1) {
+      const sample = markOf(markIndex++);
+      const lx = sample.u - 0.5;
+      const ly = sample.v - 0.52;
+      const ang = Math.atan2(ly, lx);
+      const rad = Math.hypot(lx, ly);
+      const arm = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 3) % 3;
+      const along = clamp(rad / 0.48);
+      push(1, 1, {
+        theta: along * 5.6 + arm * 2.094395 + (rand() - 0.5) * 0.1,
+        radius: 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.02,
+        z: 0.45 + rand() * 0.4,
+        size: 2.2 + sample.lum * 2.4,
+        bright: 0.55 + sample.lum * 0.45,
+        delay: along * 0.12 + rand() * 0.06,
+        u: sample.u,
+        v: sample.v,
+        color: [0.96, 0.97, 1] as [number, number, number],
+        farX: 0.5 + Math.cos(ang) * 0.4,
+        farY: 0.48 + Math.sin(ang) * 0.34,
+      });
+    }
   }
 
   return { data, count: i };
@@ -441,7 +461,6 @@ export function createLogoGalaxy({
   let cachedLogo: { x: number; y: number; size: number } | null = null;
   let heroFast = false;
   const start = performance.now();
-  const atHero = () => lastJourney <= 0.02;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -480,6 +499,9 @@ export function createLogoGalaxy({
     gl.bindBuffer(gl.ARRAY_BUFFER, stars);
     gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
     attribsBound = false;
+    (
+      window as Window & { __gatherCensus?: ReturnType<typeof censusOf> }
+    ).__gatherCensus = censusOf(field.data, field.count);
   };
 
   const measure = () => {
@@ -578,7 +600,7 @@ export function createLogoGalaxy({
       gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
       gl.uniform2f(starLoc.center, cx, cy);
       gl.uniform1f(starLoc.maxSize, maxPointSize);
-      heroFast = atHero();
+      heroFast = assemble <= 0;
     }
     gl.uniform1f(starLoc.time, time);
     gl.uniform1f(starLoc.spin, time * 0.045);
@@ -589,9 +611,7 @@ export function createLogoGalaxy({
     raf = 0;
     if (destroyed || isPaused()) return;
     render(now);
-    if (atHero() && !isPaused()) {
-      raf = requestAnimationFrame(tick);
-    }
+    if (!isPaused()) raf = requestAnimationFrame(tick);
   };
 
   const play = () => {
@@ -636,7 +656,7 @@ export function createLogoGalaxy({
       if (!same) {
         heroFast = false;
         cachedLogo = null;
-        if (assembleT(journey) > 0.55) measure();
+        if (assembleT(journey) > 0) measure();
       }
       if (same && raf) return;
       if (!raf && !isPaused() && cssW) play();
