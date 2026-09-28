@@ -554,12 +554,13 @@ export function createLogoGalaxy({
   const knockOutMark = () => {
     if (!markImage.naturalWidth) return "";
     const c = document.createElement("canvas");
-    c.width = markImage.naturalWidth;
-    c.height = markImage.naturalHeight;
+    const size = 160;
+    c.width = size;
+    c.height = size;
     const ctx = c.getContext("2d");
     if (!ctx) return "";
-    ctx.drawImage(markImage, 0, 0);
-    const img = ctx.getImageData(0, 0, c.width, c.height);
+    ctx.drawImage(markImage, 0, 0, size, size);
+    const img = ctx.getImageData(0, 0, size, size);
     const d = img.data;
     for (let i = 0; i < d.length; i += 4) {
       const lum = Math.max(d[i], d[i + 1], d[i + 2]);
@@ -625,6 +626,7 @@ export function createLogoGalaxy({
     drawn = true;
     const assemble = assembleT(lastJourney);
     if (!lastHorizontal && assemble > 0.42) measure();
+    if (assemble > 0.42 || lastJourney > 0.55 || reduced) ensureOverlay();
     const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
     const markStr = markAlpha.toFixed(3);
@@ -717,23 +719,25 @@ export function createLogoGalaxy({
   markImage.addEventListener("load", () => {
     if (destroyed) return;
     samples = sampleOfficialMark(markImage);
-    overlaySrc = knockOutMark();
     uploadStars();
-    ensureOverlay();
+    const bake = () => {
+      if (destroyed || overlaySrc) return;
+      overlaySrc = knockOutMark();
+      if (reduced) ensureOverlay();
+    };
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(bake, { timeout: 4000 });
+    } else {
+      setTimeout(bake, 1200);
+    }
     play();
   });
-  markImage.src = MARK_SRC;
-  if (markImage.complete && markImage.naturalWidth) {
-    samples = sampleOfficialMark(markImage);
-    overlaySrc = knockOutMark();
-    ensureOverlay();
-  }
-
   const boot =
     typeof requestIdleCallback === "function"
       ? requestIdleCallback(
           () => {
             if (destroyed) return;
+            if (!markImage.src) markImage.src = MARK_SRC;
             fit();
             play();
           },
@@ -741,6 +745,7 @@ export function createLogoGalaxy({
         )
       : requestAnimationFrame(() => {
           if (destroyed) return;
+          if (!markImage.src) markImage.src = MARK_SRC;
           fit();
           play();
         });
