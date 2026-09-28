@@ -54,7 +54,6 @@ const jsonLd = {
   "@type": "ProfessionalService",
   name: site.name,
   description: site.description,
-  email: site.email,
   url: site.url,
   areaServed: "Cape Town",
   address: {
