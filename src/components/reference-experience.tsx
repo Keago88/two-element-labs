@@ -72,7 +72,10 @@ export function ReferenceExperience({
     let galaxy: LogoGalaxy | null = null;
     const startGalaxy = () => {
       if (galaxy || !galaxyCanvas.current) return;
-      void import("@/lib/logo-galaxy").then(({ createLogoGalaxy }) => {
+      void import(
+        /* webpackPrefetch: false, webpackPreload: false */
+        "@/lib/logo-galaxy"
+      ).then(({ createLogoGalaxy }) => {
         if (galaxy || !galaxyCanvas.current) return;
         galaxy = createLogoGalaxy({
           canvas: galaxyCanvas.current,
@@ -215,19 +218,22 @@ export function ReferenceExperience({
         navigate(chapters[index], false),
       );
     };
-    configure();
-    const initialFrame = requestAnimationFrame(() => {
-      hash();
-      paint();
-    });
+    let galaxyReady = false;
     const startGalaxyOnce = () => {
+      if (!galaxyReady) return;
       window.removeEventListener("scroll", startGalaxyOnce);
       startGalaxy();
       queue();
     };
+    configure();
+    const initialFrame = requestAnimationFrame(() => {
+      hash();
+      paint();
+      galaxyReady = true;
+      if (window.scrollY > 8) startGalaxyOnce();
+    });
     window.addEventListener("scroll", startGalaxyOnce, { passive: true });
     window.addEventListener("scroll", queue, { passive: true });
-    if (window.scrollY > 8) startGalaxyOnce();
     window.addEventListener("resize", resize);
     window.addEventListener("hashchange", hash);
     document.addEventListener("click", click);
