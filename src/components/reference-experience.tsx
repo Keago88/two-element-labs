@@ -1,6 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import {
+  LogoParticles,
+  type LogoParticlesHandle,
+} from "@/components/logo-particles";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -53,6 +57,7 @@ export function ReferenceExperience({
   initialError: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const particles = useRef<LogoParticlesHandle>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [horizontal, setHorizontal] = useState(false);
   const [active, setActive] = useState(0);
@@ -66,16 +71,7 @@ export function ReferenceExperience({
     const el = host.current;
     if (!el) return;
     const panels = Array.from(el.querySelectorAll<HTMLElement>(".scene"));
-    const pieces = Array.from(
-      el.querySelectorAll<HTMLElement>(".assembly-piece"),
-    );
     const assembly = el.querySelector<HTMLElement>(".assembly-stage");
-    const scatter = [
-      { x: -48, y: -46, rotation: -28, scale: 0.76 },
-      { x: 52, y: -28, rotation: 33, scale: 0.9 },
-      { x: -38, y: 38, rotation: 19, scale: 0.8 },
-      { x: 48, y: 56, rotation: -24, scale: 1.02 },
-    ];
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
       "(min-width: 951px) and (min-height: 650px)",
@@ -126,12 +122,7 @@ export function ReferenceExperience({
         : isHorizontal
           ? progress / 3
           : clamp(window.scrollY / Math.max(1, end));
-      pieces.forEach((piece, i) => {
-        const t = clamp((journey - i * 0.035) / (1 - i * 0.035));
-        const remaining = 1 - t * t * (3 - 2 * t);
-        const part = scatter[i];
-        piece.style.transform = `translate3d(${part.x * remaining}%, ${part.y * remaining}%, 0) rotate(${part.rotation * remaining}deg) scale(${1 + (part.scale - 1) * remaining})`;
-      });
+      particles.current?.setProgress(journey);
       assembly?.style.setProperty(
         "--resolved",
         String(clamp((journey - 0.78) / 0.22)),
@@ -270,11 +261,7 @@ export function ReferenceExperience({
       <div ref={host} className="experience" data-horizontal={horizontal}>
         <div className="experience-viewport">
           <div className="assembly-stage" aria-hidden="true">
-            <div className="assembly-field">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className={`assembly-piece piece-${i}`} />
-              ))}
-            </div>
+            <LogoParticles ref={particles} />
             <div className="assembly-lockup">
               TWO ELEMENT
               <br />

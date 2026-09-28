@@ -259,13 +259,13 @@ button:focus-visible {
   flex: 0 0 25%;
   height: 100%;
 }
-/* A single logo assembly remains in view as the four chapters pass. */
+/* A persistent particle field resolves into the original logo at the end. */
 .assembly-stage {
   position: absolute;
-  top: 0;
+  top: 64px;
   right: 0;
   width: 44%;
-  height: calc(100svh - 52px);
+  height: calc(100svh - 116px);
   z-index: 15;
   pointer-events: none;
   display: flex;
@@ -274,54 +274,35 @@ button:focus-visible {
   justify-content: center;
   --resolved: 0;
 }
-.assembly-field {
-  position: relative;
-  width: min(18vw, 350px);
-  aspect-ratio: 1;
-  margin: 60px 0 0;
-}
-.assembly-piece {
+.logo-particles {
   position: absolute;
   inset: 0;
-  background: #000 url("/images/two-element-official.png") center center / 350%
-    auto no-repeat;
-  will-change: transform;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.piece-0 {
-  clip-path: polygon(0 0, 50.1% 0, 50.1% 50.1%, 0 50.1%);
-  transform-origin: 25% 25%;
-  transform: translate(-48%, -46%) rotate(-28deg) scale(0.76);
-}
-.piece-1 {
-  clip-path: polygon(50% 0, 100% 0, 100% 50.1%, 50% 50.1%);
-  transform-origin: 75% 25%;
-  transform: translate(52%, -28%) rotate(33deg) scale(0.9);
-}
-.piece-2 {
-  clip-path: polygon(0 50%, 50.1% 50%, 50.1% 100%, 0 100%);
-  transform-origin: 25% 75%;
-  transform: translate(-38%, 38%) rotate(19deg) scale(0.8);
-}
-.piece-3 {
-  clip-path: polygon(50% 50%, 100% 50%, 100% 100%, 50% 100%);
-  transform-origin: 75% 75%;
-  transform: translate(48%, 56%) rotate(-24deg) scale(1.02);
+.logo-particles[data-failed="true"] {
+  background: #05080b url("/images/two-element-official.png") center / contain
+    no-repeat;
 }
 .assembly-lockup {
+  position: absolute;
+  bottom: 15%;
   text-align: center;
   font-size: clamp(20px, 2.1vw, 32px);
   line-height: 1;
   letter-spacing: -0.035em;
-  margin-top: 25px;
+  color: #fff;
   opacity: var(--resolved);
   transform: translateY(calc((1 - var(--resolved)) * 12px));
 }
 .assembly-services {
+  position: absolute;
+  bottom: 8%;
   display: flex;
   gap: 18px;
-  margin-top: 24px;
   font-size: 11px;
-  color: #55554f;
+  color: #9eabb4;
 }
 .experience[data-horizontal="true"] .scene {
   padding-right: 46vw;
@@ -398,21 +379,15 @@ button:focus-visible {
   background: var(--background);
   border-bottom: 1px solid var(--border);
 }
-.experience[data-horizontal="false"] .assembly-field {
-  position: absolute;
-  top: 60px;
-  width: 80px;
-  margin: 0;
-}
 .experience[data-horizontal="false"] .assembly-lockup {
   position: absolute;
-  bottom: 43px;
+  bottom: 30px;
   font-size: 14px;
   margin-top: 0;
 }
 .experience[data-horizontal="false"] .assembly-services {
   position: absolute;
-  bottom: 16px;
+  bottom: 10px;
   gap: 18px;
   margin-top: 0;
   font-size: 10px;
@@ -431,9 +406,6 @@ button:focus-visible {
   margin-bottom: 40px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .assembly-piece {
-    transform: none !important;
-  }
   .assembly-stage {
     --resolved: 1;
   }
@@ -1007,9 +979,6 @@ body:not(:has(.experience)) main {
   }
   .experience[data-horizontal="true"] .editorial-title {
     font-size: min(7.3vw, 12vh);
-  }
-  .assembly-field {
-    width: min(18vw, 32vh);
   }
   .assembly-lockup {
     font-size: 24px;
