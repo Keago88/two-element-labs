@@ -186,7 +186,7 @@ export function ReferenceExperience({
         : panels[index].getBoundingClientRect().top + window.scrollY - 64;
       window.scrollTo({
         top: Math.max(0, destination),
-        behavior: smooth && !reduced.matches ? "smooth" : "instant",
+        behavior: smooth && !reduced.matches ? "smooth" : "auto",
       });
     };
     const click = (event: MouseEvent) => {
@@ -215,9 +215,8 @@ export function ReferenceExperience({
         navigate(chapters[index], false),
       );
     };
-    let galaxyReady = false;
     const startGalaxyOnce = () => {
-      if (!galaxyReady) return;
+      if (window.scrollY < 16) return;
       window.removeEventListener("scroll", startGalaxyOnce);
       startGalaxy();
       queue();
@@ -226,8 +225,7 @@ export function ReferenceExperience({
     const initialFrame = requestAnimationFrame(() => {
       hash();
       paint();
-      galaxyReady = true;
-      if (window.scrollY > 8) startGalaxyOnce();
+      if (window.scrollY > 16) startGalaxyOnce();
     });
     window.addEventListener("scroll", startGalaxyOnce, { passive: true });
     window.addEventListener("scroll", queue, { passive: true });
