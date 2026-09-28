@@ -69,13 +69,17 @@ export function ReferenceExperience({
     const el = host.current;
     if (!el) return;
     const panels = Array.from(el.querySelectorAll<HTMLElement>(".scene"));
-    const galaxy = galaxyCanvas.current
-      ? createLogoGalaxy({
-          canvas: galaxyCanvas.current,
-          dock: galaxyDock.current,
-          host: el,
-        })
-      : null;
+    let galaxy: ReturnType<typeof createLogoGalaxy> | null = null;
+    const startGalaxy = () => {
+      if (galaxy || !galaxyCanvas.current) return;
+      galaxy = createLogoGalaxy({
+        canvas: galaxyCanvas.current,
+        dock: galaxyDock.current,
+        host: el,
+      });
+      galaxy.setReduced(reduced.matches);
+      galaxy.resize();
+    };
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
       "(min-width: 951px) and (min-height: 650px)",
@@ -212,6 +216,19 @@ export function ReferenceExperience({
       hash();
       paint();
     });
+    const galaxyBoot =
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(
+            () => {
+              startGalaxy();
+              queue();
+            },
+            { timeout: 1200 },
+          )
+        : requestAnimationFrame(() => {
+            startGalaxy();
+            queue();
+          });
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", resize);
     window.addEventListener("hashchange", hash);
@@ -220,6 +237,10 @@ export function ReferenceExperience({
     reduced.addEventListener("change", resize);
     return () => {
       galaxy?.destroy();
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(galaxyBoot as number);
+      }
+      cancelAnimationFrame(galaxyBoot);
       cancelAnimationFrame(frame);
       cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(resizeFrame);
