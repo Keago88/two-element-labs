@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
 import { createLogoGalaxy } from "@/lib/logo-galaxy";
-import { site } from "@/lib/site";
+import { mailtoHref, site, whatsappHref } from "@/lib/site";
 
 const chapters = ["home", "about", "services", "contact"];
 const names = ["Home", "The studio", "Our services", "Contact"];
@@ -450,6 +450,19 @@ export function ReferenceExperience({
                       Share a few details about your business and the work you
                       have in mind.
                     </p>
+                    <a className="contact-email" href={mailtoHref()}>
+                      {site.email} <ArrowUpRight size={18} />
+                    </a>
+                    {whatsappHref() ? (
+                      <a
+                        className="contact-email"
+                        href={whatsappHref() ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        WhatsApp <ArrowUpRight size={18} />
+                      </a>
+                    ) : null}
                   </div>
                   <button
                     className="enquiry-button"

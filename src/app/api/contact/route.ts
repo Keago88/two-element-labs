@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           error:
-            "Something went wrong, please try again later.",
+            "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222.",
         },
         { status: 503 },
       );
@@ -147,7 +147,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Something went wrong, please try again later.",
+        error:
+          "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222.",
       },
       { status: 502 },
     );
