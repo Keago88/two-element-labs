@@ -22,7 +22,7 @@ export function SiteHeader() {
             width={3749}
             height={1959}
             priority
-            sizes="180px"
+            sizes="216px"
           />
         </a>
         <span className="rail-name">TWO ELEMENT MEDIA</span>

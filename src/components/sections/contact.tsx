@@ -1,7 +1,7 @@
 import { ContactForm } from "@/components/contact-form";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
-import { mailtoHref, site, whatsappHref } from "@/lib/site";
+import { site, whatsappHref } from "@/lib/site";
 
 export function Contact({ sent = false }: { sent?: boolean }) {
   const whatsapp = whatsappHref();
@@ -17,8 +17,8 @@ export function Contact({ sent = false }: { sent?: boolean }) {
             titleFactor={0.12}
             description={
               whatsapp
-                ? "Form, email, or WhatsApp. We reply from Cape Town, usually within one business day."
-                : "Form or email. We reply from Cape Town, usually within one business day."
+                ? "Form or WhatsApp. We reply from Cape Town, usually within one business day."
+                : "Form. We reply from Cape Town, usually within one business day."
             }
           />
           <dl className="mt-10 space-y-6 text-sm">
@@ -33,16 +33,6 @@ export function Contact({ sent = false }: { sent?: boolean }) {
                 Hours
               </dt>
               <dd className="mt-1">{site.hours}</dd>
-            </div>
-            <div>
-              <dt className="font-heading text-xs tracking-[0.2em] text-muted-foreground uppercase">
-                Email
-              </dt>
-              <dd className="mt-1">
-                <a className="underline-offset-4 hover:underline" href={mailtoHref()}>
-                  {site.email}
-                </a>
-              </dd>
             </div>
             {whatsapp ? (
               <div>

@@ -29,8 +29,8 @@
   --muted-foreground: #676762;
   --border: #deded7;
   --orange: #ff643d;
-  --rail: 56px;
-  --header: 64px;
+  --rail: 68px;
+  --header: 77px;
 }
 * {
   box-sizing: border-box;
@@ -39,6 +39,7 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 80px;
+  overflow-x: clip;
 }
 body {
   margin: 0;
@@ -48,6 +49,7 @@ body {
   font-family: var(--font-dm-sans), Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
+  overflow-x: clip;
 }
 h1,
 h2,
@@ -108,6 +110,7 @@ button:focus-visible {
 .rail-logo {
   width: var(--rail);
   height: var(--header);
+  z-index: 1;
 }
 .rail-logo img,
 .footer-logo img {
@@ -119,12 +122,16 @@ button:focus-visible {
   left: 50%;
   transform: translate(-50%, -50%);
 }
+.rail-logo img {
+  width: 216px;
+  object-fit: contain;
+}
 .rail-name {
   position: absolute;
   top: 88px;
-  left: 18px;
+  left: 50%;
   writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  transform: translateX(-50%) rotate(180deg);
   font-size: 12px;
   letter-spacing: -0.02em;
   font-weight: 600;
@@ -133,9 +140,9 @@ button:focus-visible {
 .rail-location {
   position: absolute;
   bottom: 32px;
-  left: 20px;
+  left: 50%;
   writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  transform: translateX(-50%) rotate(180deg);
   font-size: 8px;
   letter-spacing: 0.09em;
   white-space: nowrap;
@@ -161,7 +168,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   background: var(--background);
-  border-bottom: 1px solid rgb(225 225 218 / 45%);
+  box-shadow: inset 0 -1px 0 rgb(225 225 218 / 45%);
 }
 .header-brand {
   font-size: 11px;
@@ -172,8 +179,9 @@ button:focus-visible {
   display: flex;
   gap: 42px;
   position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   font-size: 12px;
 }
 .header-navigation a {
@@ -196,19 +204,21 @@ button:focus-visible {
 }
 .header-contact {
   margin-left: auto;
+  align-self: stretch;
+  flex-shrink: 0;
   width: var(--header);
-  height: 100%;
+  height: auto;
   display: grid;
   place-items: center;
-  background: #111;
+  background: #de4625;
   color: #fff;
   transition:
     background 0.25s,
     color 0.25s;
 }
 .header-contact:hover {
-  background: var(--orange);
-  color: #111;
+  background: #de4625;
+  color: #fff;
 }
 .header-contact span {
   position: absolute;
@@ -223,9 +233,13 @@ button:focus-visible {
 }
 .experience {
   position: relative;
+  overflow-x: clip;
+  background: #05070d;
+  color: #ecece6;
 }
 .experience-viewport {
   position: relative;
+  z-index: 1;
   overflow: clip;
 }
 .scene-track {
@@ -236,8 +250,93 @@ button:focus-visible {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: var(--background);
-  scroll-margin-top: 64px;
+  background: transparent;
+  scroll-margin-top: var(--header);
+}
+.logo-galaxy {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: #05070d;
+  background-image:
+    radial-gradient(ellipse 48% 36% at 64% 46%, rgba(255, 100, 61, 0.22), transparent 64%),
+    radial-gradient(ellipse 26% 20% at 57% 51%, rgba(255, 198, 128, 0.14), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 74% 36%, rgba(72, 108, 168, 0.14), transparent 72%),
+    radial-gradient(ellipse 70% 55% at 28% 72%, rgba(36, 58, 110, 0.12), transparent 75%);
+}
+.logo-galaxy::before,
+.logo-galaxy::after {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  pointer-events: none;
+  z-index: 0;
+}
+.logo-galaxy::before {
+  background:
+    radial-gradient(ellipse 24% 14% at 52% 46%, rgba(255, 120, 70, 0.12), transparent 58%),
+    radial-gradient(ellipse 42% 18% at 64% 56%, rgba(180, 140, 90, 0.07), transparent 62%);
+  animation: galaxy-drift 140s linear infinite;
+}
+.logo-galaxy::after {
+  background:
+    radial-gradient(circle at 28% 32%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 71% 61%, rgba(255, 220, 180, 0.035) 0 1px, transparent 1.6px);
+  background-size: 260px 260px, 410px 410px;
+  opacity: calc(0.7 * (1 - var(--assemble, 0)));
+  animation: galaxy-drift 200s linear infinite reverse;
+}
+.logo-galaxy canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@keyframes galaxy-drift {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.logo-galaxy-dock {
+  width: min(210px, 56vw);
+  aspect-ratio: 1;
+  margin: 8px auto 32px;
+  pointer-events: none;
+  background: transparent;
+}
+.logo-galaxy-static,
+.logo-galaxy-lock {
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+.logo-galaxy-static {
+  width: 100%;
+  height: 100%;
+  opacity: var(--logo-resolved, 0);
+}
+.logo-galaxy-lock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: var(--logo-size, 280px);
+  height: var(--logo-size, 280px);
+  transform: translate3d(var(--logo-x, 0px), var(--logo-y, 0px), 0);
+  opacity: var(--logo-resolved, 0);
+  background: transparent;
+}
+.experience[data-horizontal="true"] .logo-galaxy-dock {
+  display: none;
+}
+.experience[data-horizontal="false"] .logo-galaxy-lock {
+  display: none;
 }
 .experience[data-horizontal="true"] {
   height: 400svh;
@@ -259,50 +358,9 @@ button:focus-visible {
   flex: 0 0 25%;
   height: 100%;
 }
-/* A persistent particle field resolves into the original logo at the end. */
-.assembly-stage {
-  position: absolute;
-  top: 64px;
-  right: 0;
-  width: 44%;
-  height: calc(100svh - 116px);
-  z-index: 15;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  --resolved: 0;
-}
-.logo-particles {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.logo-particles[data-failed="true"] {
-  background: #05080b url("/images/two-element-official.png") center / contain
-    no-repeat;
-}
-.assembly-lockup {
-  position: absolute;
-  bottom: 15%;
-  text-align: center;
-  font-size: clamp(20px, 2.1vw, 32px);
-  line-height: 1;
-  letter-spacing: -0.035em;
-  color: #fff;
-  opacity: var(--resolved);
-  transform: translateY(calc((1 - var(--resolved)) * 12px));
-}
-.assembly-services {
-  position: absolute;
-  bottom: 8%;
-  display: flex;
-  gap: 18px;
-  font-size: 11px;
-  color: #9eabb4;
+.scene-window {
+  position: relative;
+  z-index: 2;
 }
 .experience[data-horizontal="true"] .scene {
   padding-right: 46vw;
@@ -369,31 +427,10 @@ button:focus-visible {
   font-size: clamp(60px, 6.3vw, 105px);
 }
 .experience[data-horizontal="false"] {
-  padding-top: 64px;
-}
-.experience[data-horizontal="false"] .assembly-stage {
-  position: sticky;
-  top: 64px;
-  width: 100%;
-  height: 230px;
-  background: var(--background);
-  border-bottom: 1px solid var(--border);
-}
-.experience[data-horizontal="false"] .assembly-lockup {
-  position: absolute;
-  bottom: 30px;
-  font-size: 14px;
-  margin-top: 0;
-}
-.experience[data-horizontal="false"] .assembly-services {
-  position: absolute;
-  bottom: 10px;
-  gap: 18px;
-  margin-top: 0;
-  font-size: 10px;
+  padding-top: var(--header);
 }
 .experience[data-horizontal="false"] .scene {
-  scroll-margin-top: 294px;
+  scroll-margin-top: var(--header);
 }
 .experience[data-horizontal="false"] .scene-home {
   min-height: 0;
@@ -406,8 +443,19 @@ button:focus-visible {
   margin-bottom: 40px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .assembly-stage {
-    --resolved: 1;
+  .logo-galaxy canvas {
+    display: none;
+  }
+  .logo-galaxy::before,
+  .logo-galaxy::after {
+    animation: none;
+  }
+  .logo-galaxy-static,
+  .logo-galaxy-lock {
+    opacity: 1;
+  }
+  .experience[data-horizontal="true"] .logo-galaxy-dock {
+    display: block;
   }
 }
 /* Editorial chapters: useful content, a single local photograph, no generated props. */
@@ -434,7 +482,40 @@ button:focus-visible {
   letter-spacing: -0.065em;
 }
 .editorial-title span {
-  color: #de4625;
+  color: #ff643d;
+}
+.experience .editorial-title {
+  color: #f6f6f1;
+}
+.experience .scene-label {
+  color: #9a9a92;
+  border-bottom-color: rgb(255 255 255 / 14%);
+}
+.experience .home-bottom p,
+.experience .contact-bottom p,
+.experience .studio-copy,
+.experience .section-intro,
+.experience .service-description p,
+.experience .service-description small,
+.experience .studio-photo figcaption {
+  color: #b7b7ae;
+}
+.experience .text-cta {
+  color: #f3f3ed;
+}
+.experience .service-row,
+.experience .service-row:last-child {
+  border-color: rgb(255 255 255 / 16%);
+}
+.experience .service-number {
+  color: #8d8d85;
+}
+.experience .contact-email,
+.experience .contact-socials a {
+  color: #e8e8e2;
+}
+.experience .chapter-bar {
+  color: #111;
 }
 .home-bottom,
 .contact-bottom {
@@ -727,6 +808,9 @@ button:focus-visible {
   text-decoration: underline;
 }
 .site-footer {
+  position: relative;
+  z-index: 20;
+  background: var(--background);
   padding: 45px 5% 76px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -770,23 +854,21 @@ body:has(.experience[data-horizontal="true"]) .site-footer {
   margin-right: auto;
 }
 body:not(:has(.experience)) main {
-  padding-top: 64px;
+  padding-top: var(--header);
 }
 @media (max-width: 950px) {
   :root {
-    --rail: 36px;
-    --header: 64px;
+    --rail: 44px;
+    --header: 77px;
   }
   .rail-logo img {
-    width: 123px;
+    width: 148px;
   }
   .rail-name {
-    left: 11px;
     top: 84px;
     font-size: 10px;
   }
   .rail-location {
-    left: 12px;
     font-size: 7px;
     bottom: 70px;
   }
@@ -804,14 +886,14 @@ body:not(:has(.experience)) main {
     display: grid;
     place-items: center;
     width: 48px;
-    height: 64px;
+    height: var(--header);
     border: 0;
     background: var(--background);
   }
   .mobile-navigation {
     position: absolute;
     display: grid;
-    top: 64px;
+    top: var(--header);
     left: 0;
     right: 0;
     padding: 24px;
@@ -979,9 +1061,6 @@ body:not(:has(.experience)) main {
   }
   .experience[data-horizontal="true"] .editorial-title {
     font-size: min(7.3vw, 12vh);
-  }
-  .assembly-lockup {
-    font-size: 24px;
   }
 }
 

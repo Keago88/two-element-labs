@@ -1,10 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import {
-  LogoParticles,
-  type LogoParticlesHandle,
-} from "@/components/logo-particles";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -16,7 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
-import { mailtoHref, site } from "@/lib/site";
+import { createLogoGalaxy } from "@/lib/logo-galaxy";
+import { site } from "@/lib/site";
 
 const chapters = ["home", "about", "services", "contact"];
 const names = ["Home", "The studio", "Our services", "Contact"];
@@ -57,8 +54,9 @@ export function ReferenceExperience({
   initialError: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const particles = useRef<LogoParticlesHandle>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const galaxyCanvas = useRef<HTMLCanvasElement>(null);
+  const galaxyDock = useRef<HTMLDivElement>(null);
   const [horizontal, setHorizontal] = useState(false);
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState(0);
@@ -71,7 +69,13 @@ export function ReferenceExperience({
     const el = host.current;
     if (!el) return;
     const panels = Array.from(el.querySelectorAll<HTMLElement>(".scene"));
-    const assembly = el.querySelector<HTMLElement>(".assembly-stage");
+    const galaxy = galaxyCanvas.current
+      ? createLogoGalaxy({
+          canvas: galaxyCanvas.current,
+          dock: galaxyDock.current,
+          host: el,
+        })
+      : null;
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
       "(min-width: 951px) and (min-height: 650px)",
@@ -110,23 +114,20 @@ export function ReferenceExperience({
         el.style.setProperty("--travel", "0px");
         panels.forEach((panel) => panel.style.setProperty("--drift", "0px"));
       }
-      // One reversible timeline across the entire page, independent of chapter changes.
-      const end =
-        panels[3].getBoundingClientRect().top +
-        window.scrollY +
-        panels[3].offsetHeight -
-        window.innerHeight +
-        52;
-      const journey = reduced.matches
-        ? 1
-        : isHorizontal
-          ? progress / 3
-          : clamp(window.scrollY / Math.max(1, end));
-      particles.current?.setProgress(journey);
-      assembly?.style.setProperty(
-        "--resolved",
-        String(clamp((journey - 0.78) / 0.22)),
-      );
+      // Linear, reversible gather from the first scroll through Contact.
+      let journey = progress / 3;
+      if (!isHorizontal) {
+        const y = window.scrollY;
+        const contactStart = Math.max(
+          1,
+          panels[3].getBoundingClientRect().top +
+            y -
+            window.innerHeight * 0.42,
+        );
+        journey = clamp(y / contactStart);
+      }
+      galaxy?.setReduced(reduced.matches);
+      if (!reduced.matches) galaxy?.draw(journey, isHorizontal);
       const index = Math.round(progress);
       if (index !== previous) {
         previous = index;
@@ -155,6 +156,7 @@ export function ReferenceExperience({
       isHorizontal = wide.matches && !reduced.matches;
       setHorizontal(isHorizontal);
       el.dataset.horizontal = String(isHorizontal);
+      galaxy?.resize();
       queue();
     };
     const navigate = (id: string, smooth = true) => {
@@ -175,10 +177,7 @@ export function ReferenceExperience({
       const top = el.getBoundingClientRect().top + window.scrollY;
       const destination = isHorizontal
         ? top + (index * (el.offsetHeight - innerHeight)) / 3
-        : panels[index].getBoundingClientRect().top +
-          window.scrollY -
-          64 -
-          (assembly?.offsetHeight ?? 0);
+        : panels[index].getBoundingClientRect().top + window.scrollY - 64;
       window.scrollTo({
         top: Math.max(0, destination),
         behavior: smooth && !reduced.matches ? "smooth" : "instant",
@@ -222,6 +221,7 @@ export function ReferenceExperience({
     wide.addEventListener("change", resize);
     reduced.addEventListener("change", resize);
     return () => {
+      galaxy?.destroy();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(resizeFrame);
@@ -259,21 +259,19 @@ export function ReferenceExperience({
   return (
     <>
       <div ref={host} className="experience" data-horizontal={horizontal}>
+        <div className="logo-galaxy" aria-hidden="true">
+          <canvas ref={galaxyCanvas} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="logo-galaxy-lock"
+            src="/logo-mark-alpha.png"
+            alt=""
+            width={1192}
+            height={1192}
+            decoding="async"
+          />
+        </div>
         <div className="experience-viewport">
-          <div className="assembly-stage" aria-hidden="true">
-            <LogoParticles ref={particles} />
-            <div className="assembly-lockup">
-              TWO ELEMENT
-              <br />
-              MEDIA
-            </div>
-            <div className="assembly-services">
-              <span>Content</span>
-              <span>Social</span>
-              <span>Paid</span>
-              <span>Web</span>
-            </div>
-          </div>
           <div className="scene-window">
             <div className="scene-track">
               <section
@@ -429,15 +427,29 @@ export function ReferenceExperience({
                   <br />
                   <span>NEED.</span>
                 </h2>
+                <div
+                  ref={galaxyDock}
+                  className="logo-galaxy-dock"
+                  aria-hidden="true"
+                >
+                  {/* Official raster — sampled by the galaxy; static fallback for reduced motion. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className="logo-galaxy-static"
+                    src="/logo-mark-alpha.png"
+                    alt=""
+                    width={1192}
+                    height={1192}
+                    decoding="async"
+                    loading="lazy"
+                  />
+                </div>
                 <div className="contact-bottom">
                   <div>
                     <p>
                       Share a few details about your business and the work you
                       have in mind.
                     </p>
-                    <a className="contact-email" href={mailtoHref()}>
-                      {site.email} <ArrowUpRight size={18} />
-                    </a>
                   </div>
                   <button
                     className="enquiry-button"

@@ -13,7 +13,7 @@ import {
   parseContactPayload,
   validateContact,
 } from "@/lib/contact";
-import { mailtoHref, serviceOptions } from "@/lib/site";
+import { serviceOptions } from "@/lib/site";
 
 const empty: ContactPayload = {
   name: "",
@@ -49,7 +49,7 @@ export function ContactForm({
   const [delivered, setDelivered] = useState(true);
   const [serverMessage, setServerMessage] = useState(
     initialError
-      ? "Your brief could not be sent. Please try again or email us directly."
+      ? "Your brief could not be sent. Please try again in a moment."
       : "",
   );
 
@@ -87,7 +87,7 @@ export function ContactForm({
         if (data.errors) setErrors(data.errors);
         throw new Error(
           data.error ??
-            "Your brief could not be delivered. Please email us directly.",
+            "Your brief could not be delivered. Please try again in a moment.",
         );
       }
 
@@ -112,17 +112,7 @@ export function ContactForm({
         <AlertDescription className="mt-2 text-muted-foreground">
           {delivered
             ? "We’ll reply from Cape Town within one business day."
-            : "Your brief is in. Email delivery is not configured on this environment yet — please also email us so nothing sits in a log."}
-          <span className="mt-4 block">
-            <a className="underline underline-offset-4" href={mailtoHref()}>
-              Email{" "}
-              {
-                mailtoHref()
-                  .replace(/^mailto:/, "")
-                  .split("?")[0]
-              }
-            </a>
-          </span>
+            : "Your brief is in. Email delivery is not configured on this environment yet — try sending again in a moment so nothing sits in a log."}
         </AlertDescription>
         <Button
           type="button"
@@ -245,11 +235,7 @@ export function ContactForm({
           <AlertCircle />
           <AlertTitle>Could not send</AlertTitle>
           <AlertDescription>
-            {serverMessage} You can also{" "}
-            <a className="underline" href={mailtoHref()}>
-              email us directly
-            </a>
-            .
+            {serverMessage}
           </AlertDescription>
         </Alert>
       ) : null}
