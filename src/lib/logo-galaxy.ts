@@ -438,6 +438,8 @@ export function createLogoGalaxy({
   let lastLogoX = "";
   let lastLogoY = "";
   let lastLogoSize = "";
+  let cachedLogo: { x: number; y: number; size: number } | null = null;
+  let heroFast = false;
   const start = performance.now();
   const atHero = () => lastJourney <= 0.02;
 
@@ -504,6 +506,8 @@ export function createLogoGalaxy({
     canvas.style.height = `${h}px`;
     gl?.viewport(0, 0, canvas.width, canvas.height);
     glReady = false;
+    heroFast = false;
+    cachedLogo = null;
     uploadStars();
   };
 
@@ -534,7 +538,10 @@ export function createLogoGalaxy({
     if (!starProg || !starLoc || !stars || !starCount) return;
     const time = (now - start) / 1000;
     const assemble = assembleT(lastJourney);
-    const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
+    if (!cachedLogo || assemble > 0.55) {
+      cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
+    }
+    const logo = cachedLogo;
     writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
@@ -547,6 +554,7 @@ export function createLogoGalaxy({
       gl.useProgram(starProg);
       gl.bindBuffer(gl.ARRAY_BUFFER, stars);
       glReady = true;
+      heroFast = false;
     }
     gl.clear(gl.COLOR_BUFFER_BIT);
     if (!attribsBound) {
@@ -562,15 +570,18 @@ export function createLogoGalaxy({
       bind(starLoc.a3, 12);
       attribsBound = true;
     }
-    gl.uniform2f(starLoc.res, cssW, cssH);
+    if (!heroFast) {
+      gl.uniform2f(starLoc.res, cssW, cssH);
+      gl.uniform1f(starLoc.assemble, assemble);
+      gl.uniform1f(starLoc.dpr, dpr);
+      gl.uniform1f(starLoc.horizontal, lastHorizontal ? 1 : 0);
+      gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
+      gl.uniform2f(starLoc.center, cx, cy);
+      gl.uniform1f(starLoc.maxSize, maxPointSize);
+      heroFast = atHero();
+    }
     gl.uniform1f(starLoc.time, time);
-    gl.uniform1f(starLoc.assemble, assemble);
     gl.uniform1f(starLoc.spin, time * 0.045);
-    gl.uniform1f(starLoc.dpr, dpr);
-    gl.uniform1f(starLoc.horizontal, lastHorizontal ? 1 : 0);
-    gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
-    gl.uniform2f(starLoc.center, cx, cy);
-    gl.uniform1f(starLoc.maxSize, maxPointSize);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
@@ -622,7 +633,11 @@ export function createLogoGalaxy({
       const same = journey === lastJourney && horizontal === lastHorizontal;
       lastJourney = journey;
       lastHorizontal = horizontal;
-      if (assembleT(journey) > 0.55 && !same) measure();
+      if (!same) {
+        heroFast = false;
+        cachedLogo = null;
+        if (assembleT(journey) > 0.55) measure();
+      }
       if (same && raf) return;
       if (!raf && !isPaused() && cssW) play();
     },
