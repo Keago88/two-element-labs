@@ -31,8 +31,8 @@ export default function PrivacyPage() {
           delivery (Resend) will process the request in order to deliver it.
         </p>
         <p>
-          You can ask us to delete a brief you sent by emailing{" "}
-          <a href="mailto:hello@twoelement.media">hello@twoelement.media</a>.
+          You can ask us to delete a brief you sent by using the enquiry form on
+          this site.
         </p>
         <p>
           This page is a placeholder. It is not legal advice and does not cover
