@@ -1,8 +1,12 @@
 import {
   assembleT,
+  buildField,
+  FLOATS,
   logoRect,
+  program,
   smoothstep,
-  type LogoBox,
+  STAR_FRAG,
+  STAR_VERT,
   type Rect4,
   type Sample,
 } from "./logo-galaxy-core";
@@ -90,6 +94,17 @@ export function createLogoGalaxy({
   dock: HTMLElement | null;
   host: HTMLElement;
 }): LogoGalaxy {
+  const gl = canvas.getContext("webgl", {
+    alpha: true,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: true,
+    powerPreference: "high-performance",
+    preserveDrawingBuffer: false,
+  });
+
+  let samples: Sample[] = [];
   let reduced = false;
   let hidden = typeof document !== "undefined" ? document.hidden : false;
   let offscreen = false;
@@ -99,19 +114,52 @@ export function createLogoGalaxy({
   let dpr = 1;
   let lastJourney = 0;
   let lastHorizontal = false;
+  let starCount = 0;
   let raf = 0;
   let drawn = false;
+  let maxPointSize = 28;
   let canvasBox: DOMRect | null = null;
   let dockBox: DOMRect | null = null;
+  let attribsBound = false;
   let intro = true;
   let markRequested = false;
-  let workerReady = false;
   let copy0: Rect4 = [0, 0, -1, -1];
   let copy1: Rect4 = [0, 0, -1, -1];
   let copy2: Rect4 = [0, 0, -1, -1];
   const start = performance.now();
   const introUntil = start + 2400;
   const empty: Rect4 = [0, 0, -1, -1];
+
+  const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
+  const stars = gl?.createBuffer() ?? null;
+  if (gl) {
+    const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as
+      | Float32Array
+      | number[];
+    maxPointSize = Math.min(28, range?.[1] || 24);
+  }
+
+  const starLoc =
+    starProg && gl
+      ? {
+          a0: gl.getAttribLocation(starProg, "a0"),
+          a1: gl.getAttribLocation(starProg, "a1"),
+          a2: gl.getAttribLocation(starProg, "a2"),
+          a3: gl.getAttribLocation(starProg, "a3"),
+          res: gl.getUniformLocation(starProg, "u_res"),
+          time: gl.getUniformLocation(starProg, "u_time"),
+          assemble: gl.getUniformLocation(starProg, "u_assemble"),
+          spin: gl.getUniformLocation(starProg, "u_spin"),
+          dpr: gl.getUniformLocation(starProg, "u_dpr"),
+          horizontal: gl.getUniformLocation(starProg, "u_horizontal"),
+          logo: gl.getUniformLocation(starProg, "u_logo"),
+          center: gl.getUniformLocation(starProg, "u_center"),
+          maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+          copy0: gl.getUniformLocation(starProg, "u_copy0"),
+          copy1: gl.getUniformLocation(starProg, "u_copy1"),
+          copy2: gl.getUniformLocation(starProg, "u_copy2"),
+        }
+      : null;
 
   const markImage = new Image();
   markImage.decoding = "async";
@@ -128,19 +176,15 @@ export function createLogoGalaxy({
     ".scene-contact .contact-socials",
   );
 
-  const isPaused = () => hidden || offscreen || reduced;
+  const isPaused = () => hidden || offscreen || reduced || !gl;
 
-  let overlaySrc = "";
-  let overlayAssigned = false;
-  let lastMark = "";
-  let lastLogo = "";
-
-  const worker = new Worker(new URL("./logo-galaxy-worker.ts", import.meta.url));
-
-  const post = (msg: Record<string, unknown>, transfer?: Transferable[]) => {
-    if (destroyed) return;
-    if (transfer) worker.postMessage(msg, transfer);
-    else worker.postMessage(msg);
+  const uploadStars = () => {
+    if (!gl || !stars || !cssW) return;
+    const field = buildField(samples, cssW, 90210 + Math.round(cssW));
+    starCount = field.count;
+    gl.bindBuffer(gl.ARRAY_BUFFER, stars);
+    gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
+    attribsBound = false;
   };
 
   const knockOutMark = () => {
@@ -162,6 +206,10 @@ export function createLogoGalaxy({
     return c.toDataURL("image/png");
   };
 
+  let overlaySrc = "";
+  let overlayAssigned = false;
+  let lastMark = "";
+  let lastLogo = "";
   const ensureOverlay = () => {
     if (overlayAssigned || !overlaySrc) return;
     overlayAssigned = true;
@@ -177,13 +225,11 @@ export function createLogoGalaxy({
   const copyRect = (el: HTMLElement | null): Rect4 => {
     if (!el || !canvasBox) return empty;
     const r = el.getBoundingClientRect();
-    const padX = 32;
-    const padY = 28;
     return [
-      r.left - canvasBox.left - padX,
-      r.top - canvasBox.top - padY,
-      r.right - canvasBox.left + padX,
-      r.bottom - canvasBox.top + padY,
+      r.left - canvasBox.left - 32,
+      r.top - canvasBox.top - 28,
+      r.right - canvasBox.left + 32,
+      r.bottom - canvasBox.top + 28,
     ];
   };
 
@@ -194,15 +240,41 @@ export function createLogoGalaxy({
     copy2 = copyRect(copySocials);
   };
 
-  const sizeFromBox = () => {
+  const fit = () => {
+    measure();
     const next = canvasBox ?? canvas.getBoundingClientRect();
     const nextDpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const w = Math.max(1, Math.round(next.width));
     const h = Math.max(1, Math.round(next.height));
-    return { w, h, nextDpr };
+    if (w === cssW && h === cssH && nextDpr === dpr) return;
+    cssW = w;
+    cssH = h;
+    dpr = nextDpr;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    gl?.viewport(0, 0, canvas.width, canvas.height);
+    uploadStars();
   };
 
-  const applyLogoCss = (logo: LogoBox, assemble: number) => {
+  const requestMark = () => {
+    if (markRequested) return;
+    markRequested = true;
+    markImage.src = MARK_SRC;
+  };
+
+  const render = (now: number) => {
+    if (!gl || destroyed || reduced || hidden || offscreen) return;
+    if (!starProg || !starLoc || !stars || !starCount) return;
+    const time = (now - start) / 1000;
+    drawn = true;
+    const assemble = assembleT(lastJourney);
+    if (assemble > 0.42 || lastJourney > 0.55 || reduced) {
+      requestMark();
+      ensureOverlay();
+    }
+    const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
     const markStr = markAlpha.toFixed(3);
     if (markStr !== lastMark) {
@@ -216,40 +288,45 @@ export function createLogoGalaxy({
       host.style.setProperty("--logo-y", `${Math.round(logo.y)}px`);
       host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
     }
-  };
-
-  const requestMark = () => {
-    if (markRequested) return;
-    markRequested = true;
-    markImage.src = MARK_SRC;
-  };
-
-  const sendFrame = (now: number) => {
-    if (!workerReady || isPaused()) return;
-    drawn = true;
-    const assemble = assembleT(lastJourney);
-    if (assemble > 0.42 || lastJourney > 0.55 || reduced) {
-      requestMark();
-      ensureOverlay();
+    const cx = lastHorizontal ? 0.64 : 0.5;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(starProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stars);
+    const stride = FLOATS * 4;
+    if (!attribsBound) {
+      const bind = (loc: number, offset: number) => {
+        gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, stride, offset * 4);
+      };
+      bind(starLoc.a0, 0);
+      bind(starLoc.a1, 4);
+      bind(starLoc.a2, 8);
+      bind(starLoc.a3, 12);
+      attribsBound = true;
     }
-    const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
-    applyLogoCss(logo, assemble);
-    post({
-      type: "frame",
-      now,
-      journey: lastJourney,
-      horizontal: lastHorizontal,
-      logo,
-      copy0,
-      copy1,
-      copy2,
-    });
+    gl.uniform2f(starLoc.res, cssW, cssH);
+    gl.uniform1f(starLoc.time, time);
+    gl.uniform1f(starLoc.assemble, assemble);
+    gl.uniform1f(starLoc.spin, time * 0.045);
+    gl.uniform1f(starLoc.dpr, dpr);
+    gl.uniform1f(starLoc.horizontal, lastHorizontal ? 1 : 0);
+    gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
+    gl.uniform2f(starLoc.center, cx, 0.48);
+    gl.uniform1f(starLoc.maxSize, maxPointSize);
+    gl.uniform4f(starLoc.copy0, copy0[0], copy0[1], copy0[2], copy0[3]);
+    gl.uniform4f(starLoc.copy1, copy1[0], copy1[1], copy1[2], copy1[3]);
+    gl.uniform4f(starLoc.copy2, copy2[0], copy2[1], copy2[2], copy2[3]);
+    gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
   const tick = (now: number) => {
     raf = 0;
     if (destroyed || isPaused()) return;
-    sendFrame(now);
+    render(now);
     if (intro && now < introUntil && !isPaused()) {
       raf = requestAnimationFrame(tick);
     } else {
@@ -267,28 +344,9 @@ export function createLogoGalaxy({
     raf = 0;
   };
 
-  const bootSize = () => {
-    measure();
-    const { w, h, nextDpr } = sizeFromBox();
-    cssW = w;
-    cssH = h;
-    dpr = nextDpr;
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
-    return { w, h, nextDpr };
-  };
-
-  worker.addEventListener("message", (event: MessageEvent) => {
-    if (event.data?.type === "ready") {
-      workerReady = Boolean(event.data.ok);
-      if (workerReady && !isPaused()) play();
-    }
-  });
-
   const observer = new IntersectionObserver(
     ([entry]) => {
       offscreen = !entry.isIntersecting;
-      post({ type: "pause", paused: isPaused() });
       if (isPaused()) stop();
       else play();
     },
@@ -298,7 +356,6 @@ export function createLogoGalaxy({
 
   const onVisibility = () => {
     hidden = document.hidden;
-    post({ type: "pause", paused: isPaused() });
     if (isPaused()) stop();
     else play();
   };
@@ -308,7 +365,8 @@ export function createLogoGalaxy({
     if (destroyed) return;
     const finish = () => {
       if (destroyed) return;
-      post({ type: "samples", samples: sampleOfficialMark(markImage) });
+      samples = sampleOfficialMark(markImage);
+      uploadStars();
       overlaySrc = knockOutMark();
       if (reduced) ensureOverlay();
     };
@@ -319,12 +377,11 @@ export function createLogoGalaxy({
     }
   });
 
-  const { w, h, nextDpr } = bootSize();
-  const offscreenCanvas = canvas.transferControlToOffscreen();
-  post(
-    { type: "init", canvas: offscreenCanvas, width: w, height: h, dpr: nextDpr },
-    [offscreenCanvas],
-  );
+  const boot = requestAnimationFrame(() => {
+    if (destroyed) return;
+    fit();
+    play();
+  });
 
   return {
     draw(journey, horizontal) {
@@ -342,7 +399,6 @@ export function createLogoGalaxy({
     setReduced(next) {
       if (reduced === next) return;
       reduced = next;
-      post({ type: "pause", paused: isPaused() });
       if (reduced) {
         stop();
         intro = false;
@@ -355,33 +411,24 @@ export function createLogoGalaxy({
     },
     setPaused(next) {
       offscreen = next;
-      post({ type: "pause", paused: isPaused() });
       if (isPaused()) stop();
       else play();
     },
     resize() {
-      measure();
-      const size = sizeFromBox();
-      cssW = size.w;
-      cssH = size.h;
-      dpr = size.nextDpr;
-      canvas.style.width = `${size.w}px`;
-      canvas.style.height = `${size.h}px`;
-      post({
-        type: "resize",
-        width: size.w,
-        height: size.h,
-        dpr: size.nextDpr,
-      });
+      cssW = 0;
+      fit();
     },
     destroy() {
       destroyed = true;
+      cancelAnimationFrame(boot);
       stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       markImage.src = "";
-      post({ type: "destroy" });
-      worker.terminate();
+      if (gl) {
+        if (stars) gl.deleteBuffer(stars);
+        if (starProg) gl.deleteProgram(starProg);
+      }
       host.style.removeProperty("--logo-resolved");
       host.style.removeProperty("--logo-x");
       host.style.removeProperty("--logo-y");
