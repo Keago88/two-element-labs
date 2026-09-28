@@ -961,6 +961,9 @@ body:not(:has(.experience)) main {
   .services-layout h2 {
     font-size: clamp(42px, 7vw, 68px);
   }
+  .studio-photo {
+    display: none;
+  }
   .studio-photo > div {
     height: 340px;
   }
