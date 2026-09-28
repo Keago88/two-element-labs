@@ -16,7 +16,6 @@ export const site = {
       : process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : "http://127.0.0.1:43177"),
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@twoelement.media",
   city: "Cape Town, South Africa",
   hours: "Mon–Fri, 09:00–17:00 SAST",
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "",
@@ -136,12 +135,4 @@ export function whatsappHref(message?: string) {
       "Hi Two Element Media — I would like to talk about a brief for my business.",
   );
   return `https://wa.me/${digits}?text=${text}`;
-}
-
-export function mailtoHref() {
-  const subject = encodeURIComponent("Brief for Two Element Media");
-  const body = encodeURIComponent(
-    "Name:\nBusiness:\nWhat you need:\n\nA few lines on the work.",
-  );
-  return `mailto:${site.email}?subject=${subject}&body=${body}`;
 }

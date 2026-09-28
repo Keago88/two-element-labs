@@ -49,7 +49,7 @@ export function ContactForm({
   const [delivered, setDelivered] = useState(true);
   const [serverMessage, setServerMessage] = useState(
     initialError
-      ? "Your brief could not be sent. Please try again in a moment."
+      ? "Something went wrong, please try again later."
       : "",
   );
 
@@ -87,7 +87,7 @@ export function ContactForm({
         if (data.errors) setErrors(data.errors);
         throw new Error(
           data.error ??
-            "Your brief could not be delivered. Please try again in a moment.",
+            "Something went wrong, please try again later.",
         );
       }
 
@@ -99,7 +99,7 @@ export function ContactForm({
       setServerMessage(
         error instanceof Error
           ? error.message
-          : "Something went wrong. Email us instead.",
+          : "Something went wrong, please try again later.",
       );
     }
   }
