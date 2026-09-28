@@ -72,10 +72,7 @@ export function ReferenceExperience({
     let galaxy: LogoGalaxy | null = null;
     const startGalaxy = () => {
       if (galaxy || !galaxyCanvas.current) return;
-      void import(
-        /* webpackPrefetch: false, webpackPreload: false */
-        "@/lib/logo-galaxy"
-      ).then(({ createLogoGalaxy }) => {
+      void import("@/lib/logo-galaxy").then(({ createLogoGalaxy }) => {
         if (galaxy || !galaxyCanvas.current) return;
         galaxy = createLogoGalaxy({
           canvas: galaxyCanvas.current,
