@@ -406,6 +406,30 @@ function logoRect(
   };
 }
 
+function verticalGatherRect(
+  width: number,
+  height: number,
+  dock: DOMRect | null,
+  canvasBox: DOMRect | null,
+) {
+  const size = Math.max(64, dock?.width ?? Math.min(210, width * 0.56));
+  const holdX = (width - size) / 2;
+  const holdY = (height - size) / 2;
+  if (!dock || !canvasBox) {
+    return { x: holdX, y: holdY, size };
+  }
+  const liveX = dock.left - canvasBox.left;
+  const liveY = dock.top - canvasBox.top;
+  // Hold at the viewport centre while Contact is below the fold, then
+  // settle onto the live dock over the first logo-height of entry.
+  const settle = clamp((height - liveY) / size);
+  return {
+    x: holdX + (liveX - holdX) * settle,
+    y: holdY + (liveY - holdY) * settle,
+    size,
+  };
+}
+
 export function createLogoGalaxy({
   canvas,
   dock,
@@ -452,8 +476,11 @@ export function createLogoGalaxy({
   let lastLogoX = "";
   let lastLogoY = "";
   let lastLogoSize = "";
-  let lastAssembleCss = "";
+  let lastFadeOpacity = "";
   let cachedLogo: { x: number; y: number; size: number } | null = null;
+  const fade = canvas.parentElement?.querySelector<HTMLElement>(
+    ".logo-galaxy-fade",
+  );
   let heroFast = false;
   const live: {
     journey: number;
@@ -462,6 +489,9 @@ export function createLogoGalaxy({
     starCount: number;
     horizontal: boolean;
     census: ReturnType<typeof censusOf> | null;
+    logoX: number;
+    logoY: number;
+    logoSize: number;
   } = {
     journey: 0,
     assemble: 0,
@@ -469,6 +499,9 @@ export function createLogoGalaxy({
     starCount: 0,
     horizontal: false,
     census: null,
+    logoX: 0,
+    logoY: 0,
+    logoSize: 0,
   };
   const start = performance.now();
   let shownAssemble = 0;
@@ -553,6 +586,14 @@ export function createLogoGalaxy({
     uploadStars();
   };
 
+  const writeFade = (assemble: number) => {
+    if (!fade) return;
+    const opacity = (0.7 * (1 - assemble)).toFixed(3);
+    if (opacity === lastFadeOpacity) return;
+    lastFadeOpacity = opacity;
+    fade.style.opacity = opacity;
+  };
+
   const writeLogoVars = (logo: { x: number; y: number; size: number }, mark: string) => {
     if (mark !== lastMark) {
       lastMark = mark;
@@ -594,21 +635,20 @@ export function createLogoGalaxy({
     const assemble = shownAssemble;
     if (!lastHorizontal) {
       measure();
-      cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, false);
+      cachedLogo = verticalGatherRect(cssW, cssH, dockBox, canvasBox);
     } else if (!cachedLogo || assemble > 0.55) {
       cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, true);
     }
     const logo = cachedLogo;
     writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
-    const assembleCss = assemble.toFixed(3);
-    if (assembleCss !== lastAssembleCss) {
-      lastAssembleCss = assembleCss;
-      host.style.setProperty("--assemble", assembleCss);
-    }
+    writeFade(assemble);
     live.journey = lastJourney;
     live.assemble = assemble;
     live.target = target;
     live.horizontal = lastHorizontal;
+    live.logoX = logo.x;
+    live.logoY = logo.y;
+    live.logoSize = logo.size;
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
 
@@ -711,8 +751,7 @@ export function createLogoGalaxy({
       if (reduced) {
         stop();
         host.style.setProperty("--logo-resolved", "1");
-        host.style.setProperty("--assemble", "1");
-        lastAssembleCss = "1";
+        writeFade(1);
       } else {
         play();
       }
@@ -740,7 +779,7 @@ export function createLogoGalaxy({
       host.style.removeProperty("--logo-x");
       host.style.removeProperty("--logo-y");
       host.style.removeProperty("--logo-size");
-      host.style.removeProperty("--assemble");
+      if (fade) fade.style.removeProperty("opacity");
     },
   };
 }
