@@ -433,15 +433,13 @@ export function createLogoGalaxy({
   let canvasBox: DOMRect | null = null;
   let dockBox: DOMRect | null = null;
   let attribsBound = false;
-  let intro = true;
+  let glReady = false;
   let lastMark = "";
   let lastLogoX = "";
   let lastLogoY = "";
   let lastLogoSize = "";
-  let lastDrawnJourney = Number.NaN;
-  let lastDrawnHorizontal = false;
   const start = performance.now();
-  const introUntil = start + 2400;
+  const atHero = () => lastJourney <= 0.02;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -505,6 +503,7 @@ export function createLogoGalaxy({
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     gl?.viewport(0, 0, canvas.width, canvas.height);
+    glReady = false;
     uploadStars();
   };
 
@@ -540,14 +539,18 @@ export function createLogoGalaxy({
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
 
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0, 0, 0, 0);
+    if (!glReady) {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.useProgram(starProg);
+      gl.bindBuffer(gl.ARRAY_BUFFER, stars);
+      glReady = true;
+    }
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.useProgram(starProg);
-    gl.bindBuffer(gl.ARRAY_BUFFER, stars);
     if (!attribsBound) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, stars);
       const stride = FLOATS * 4;
       const bind = (loc: number, offset: number) => {
         gl.enableVertexAttribArray(loc);
@@ -569,18 +572,14 @@ export function createLogoGalaxy({
     gl.uniform2f(starLoc.center, cx, cy);
     gl.uniform1f(starLoc.maxSize, maxPointSize);
     gl.drawArrays(gl.POINTS, 0, starCount);
-    lastDrawnJourney = lastJourney;
-    lastDrawnHorizontal = lastHorizontal;
   };
 
   const tick = (now: number) => {
     raf = 0;
     if (destroyed || isPaused()) return;
     render(now);
-    if (intro && now < introUntil && !isPaused()) {
+    if (atHero() && !isPaused()) {
       raf = requestAnimationFrame(tick);
-    } else {
-      intro = false;
     }
   };
 
@@ -614,6 +613,7 @@ export function createLogoGalaxy({
   const boot = requestAnimationFrame(() => {
     if (destroyed) return;
     fit();
+    render(performance.now());
     play();
   });
 
@@ -623,14 +623,7 @@ export function createLogoGalaxy({
       lastJourney = journey;
       lastHorizontal = horizontal;
       if (assembleT(journey) > 0.55 && !same) measure();
-      if (
-        same &&
-        !intro &&
-        journey === lastDrawnJourney &&
-        horizontal === lastDrawnHorizontal
-      ) {
-        return;
-      }
+      if (same && raf) return;
       if (!raf && !isPaused() && cssW) play();
     },
     setReduced(next) {
@@ -638,7 +631,6 @@ export function createLogoGalaxy({
       reduced = next;
       if (reduced) {
         stop();
-        intro = false;
         host.style.setProperty("--logo-resolved", "1");
       } else {
         play();
