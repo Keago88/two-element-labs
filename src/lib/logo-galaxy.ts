@@ -20,69 +20,6 @@ const TRI = {
   cy: 0.863,
 };
 
-const NEBULA_VERT = `
-attribute vec2 a_pos;
-varying vec2 v_uv;
-void main() {
-  v_uv = a_pos * 0.5 + 0.5;
-  gl_Position = vec4(a_pos, 0.0, 1.0);
-}
-`;
-
-const NEBULA_FRAG = `
-precision mediump float;
-varying vec2 v_uv;
-uniform vec2 u_res;
-uniform float u_time;
-uniform float u_assemble;
-uniform vec2 u_center;
-
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
-    f.y
-  );
-}
-float fbm(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  for (int i = 0; i < 4; i++) {
-    v += a * noise(p);
-    p = p * 2.03 + vec2(0.7, 1.1);
-    a *= 0.55;
-  }
-  return v;
-}
-
-void main() {
-  vec2 p = (v_uv - u_center) * vec2(u_res.x / u_res.y, 1.0);
-  float t = u_time * 0.018;
-  float n = fbm(p * 2.4 + vec2(t * 0.15, -t * 0.08));
-  float n2 = fbm(p * 1.1 - vec2(t * 0.05, t * 0.07));
-  float r = length(p);
-  float core = exp(-r * r * 2.6);
-  float arm = exp(-abs(n2 - 0.52) * 6.0) * exp(-r * 1.15);
-  vec3 space = vec3(0.01, 0.014, 0.03);
-  vec3 orange = vec3(1.0, 0.39, 0.24);
-  vec3 amber = vec3(1.0, 0.78, 0.48);
-  vec3 teal = vec3(0.35, 0.52, 0.78);
-  vec3 nebula =
-    orange * (0.16 * core + 0.07 * arm * n) +
-    amber * (0.14 * core * n2) +
-    teal * (0.08 * (1.0 - core) * n * (1.0 - u_assemble * 0.35));
-  float veil = 0.18 + 0.22 * n;
-  vec3 color = space + nebula * veil * (1.0 - u_assemble * 0.28);
-  gl_FragColor = vec4(color, 1.0);
-}
-`;
-
 const STAR_VERT = `
 attribute vec4 a0;
 attribute vec4 a1;
@@ -489,21 +426,19 @@ function program(
 }
 
 function logoRect(
-  canvas: HTMLCanvasElement,
-  dock: HTMLElement | null,
+  width: number,
+  height: number,
+  dock: DOMRect | null,
+  canvasBox: DOMRect | null,
   horizontal: boolean,
 ) {
-  const box = canvas.getBoundingClientRect();
-  if (!horizontal && dock) {
-    const dockBox = dock.getBoundingClientRect();
+  if (!horizontal && dock && canvasBox) {
     return {
-      x: dockBox.left - box.left,
-      y: dockBox.top - box.top,
-      size: Math.max(64, dockBox.width),
+      x: dock.left - canvasBox.left,
+      y: dock.top - canvasBox.top,
+      size: Math.max(64, dock.width),
     };
   }
-  const width = box.width;
-  const height = box.height;
   const stageLeft = width * 0.56;
   const stageWidth = width * 0.44;
   const size = Math.min(stageWidth * 0.72, (height - 52) * 0.48, 350);
@@ -524,15 +459,16 @@ export function createLogoGalaxy({
   host: HTMLElement;
 }): LogoGalaxy {
   const gl = (canvas.getContext("webgl", {
-    alpha: false,
+    alpha: true,
     antialias: false,
     depth: false,
     stencil: false,
     premultipliedAlpha: true,
-    powerPreference: "high-performance",
+    powerPreference: "low-power",
+    preserveDrawingBuffer: false,
   }) ||
     canvas.getContext("experimental-webgl", {
-      alpha: false,
+      alpha: true,
       antialias: false,
       depth: false,
       stencil: false,
@@ -550,46 +486,41 @@ export function createLogoGalaxy({
   let lastHorizontal = false;
   let starCount = 0;
   let raf = 0;
+  let lastDraw = 0;
+  let maxPointSize = 64;
+  let canvasBox: DOMRect | null = null;
+  let dockBox: DOMRect | null = null;
   const start = performance.now();
+  const idleGap = 1000 / 10;
+  const activeGap = 1000 / 30;
 
-  const nebulaProg = gl ? program(gl, NEBULA_VERT, NEBULA_FRAG) : null;
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
-  const quad = gl?.createBuffer() ?? null;
   const stars = gl?.createBuffer() ?? null;
-  const quadData = new Float32Array([-1, -1, 3, -1, -1, 3]);
-
-  if (gl && quad) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, quadData, gl.STATIC_DRAW);
+  if (gl) {
+    const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as
+      | Float32Array
+      | number[];
+    maxPointSize = Math.min(72, range?.[1] || 64);
   }
 
-  const nebulaLoc = nebulaProg && gl
-    ? {
-        pos: gl.getAttribLocation(nebulaProg, "a_pos"),
-        res: gl.getUniformLocation(nebulaProg, "u_res"),
-        time: gl.getUniformLocation(nebulaProg, "u_time"),
-        assemble: gl.getUniformLocation(nebulaProg, "u_assemble"),
-        center: gl.getUniformLocation(nebulaProg, "u_center"),
-      }
-    : null;
-
-  const starLoc = starProg && gl
-    ? {
-        a0: gl.getAttribLocation(starProg, "a0"),
-        a1: gl.getAttribLocation(starProg, "a1"),
-        a2: gl.getAttribLocation(starProg, "a2"),
-        a3: gl.getAttribLocation(starProg, "a3"),
-        res: gl.getUniformLocation(starProg, "u_res"),
-        time: gl.getUniformLocation(starProg, "u_time"),
-        assemble: gl.getUniformLocation(starProg, "u_assemble"),
-        spin: gl.getUniformLocation(starProg, "u_spin"),
-        dpr: gl.getUniformLocation(starProg, "u_dpr"),
-        horizontal: gl.getUniformLocation(starProg, "u_horizontal"),
-        logo: gl.getUniformLocation(starProg, "u_logo"),
-        center: gl.getUniformLocation(starProg, "u_center"),
-        maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
-      }
-    : null;
+  const starLoc =
+    starProg && gl
+      ? {
+          a0: gl.getAttribLocation(starProg, "a0"),
+          a1: gl.getAttribLocation(starProg, "a1"),
+          a2: gl.getAttribLocation(starProg, "a2"),
+          a3: gl.getAttribLocation(starProg, "a3"),
+          res: gl.getUniformLocation(starProg, "u_res"),
+          time: gl.getUniformLocation(starProg, "u_time"),
+          assemble: gl.getUniformLocation(starProg, "u_assemble"),
+          spin: gl.getUniformLocation(starProg, "u_spin"),
+          dpr: gl.getUniformLocation(starProg, "u_dpr"),
+          horizontal: gl.getUniformLocation(starProg, "u_horizontal"),
+          logo: gl.getUniformLocation(starProg, "u_logo"),
+          center: gl.getUniformLocation(starProg, "u_center"),
+          maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+        }
+      : null;
 
   const markImage = new Image();
   markImage.decoding = "async";
@@ -605,11 +536,17 @@ export function createLogoGalaxy({
     gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
   };
 
+  const measure = () => {
+    canvasBox = canvas.getBoundingClientRect();
+    dockBox = dock?.getBoundingClientRect() ?? null;
+  };
+
   const fit = () => {
-    const next = canvas.getBoundingClientRect();
+    measure();
+    const next = canvasBox ?? canvas.getBoundingClientRect();
     const nextDpr = Math.min(
       window.devicePixelRatio || 1,
-      next.width < 951 ? 1.5 : 2,
+      next.width < 951 ? 1.25 : 1.75,
     );
     const w = Math.max(1, Math.round(next.width));
     const h = Math.max(1, Math.round(next.height));
@@ -627,13 +564,11 @@ export function createLogoGalaxy({
 
   const render = (now: number) => {
     if (!gl || destroyed || reduced || hidden || offscreen) return;
-    if (!nebulaProg || !starProg || !nebulaLoc || !starLoc || !quad || !stars) {
-      return;
-    }
-    fit();
+    if (!starProg || !starLoc || !stars || !starCount) return;
     const time = (now - start) / 1000;
     const assemble = assembleT(lastJourney);
-    const logo = logoRect(canvas, dock, lastHorizontal);
+    if (assemble > 0.55) measure();
+    const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
     host.style.setProperty("--logo-resolved", markAlpha.toFixed(3));
     host.style.setProperty("--logo-x", `${Math.round(logo.x)}px`);
@@ -643,18 +578,8 @@ export function createLogoGalaxy({
     const cy = 0.48;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.disable(gl.BLEND);
-    gl.useProgram(nebulaProg);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(nebulaLoc.pos);
-    gl.vertexAttribPointer(nebulaLoc.pos, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform2f(nebulaLoc.res, cssW, cssH);
-    gl.uniform1f(nebulaLoc.time, time);
-    gl.uniform1f(nebulaLoc.assemble, assemble);
-    gl.uniform2f(nebulaLoc.center, cx, 1 - cy);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-    if (!starCount) return;
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(starProg);
@@ -676,17 +601,19 @@ export function createLogoGalaxy({
     gl.uniform1f(starLoc.horizontal, lastHorizontal ? 1 : 0);
     gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
     gl.uniform2f(starLoc.center, cx, cy);
-    const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as
-      | Float32Array
-      | number[];
-    gl.uniform1f(starLoc.maxSize, Math.min(96, range?.[1] || 64));
+    gl.uniform1f(starLoc.maxSize, maxPointSize);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
   const tick = (now: number) => {
     raf = 0;
     if (destroyed || isPaused()) return;
-    render(now);
+    const assembling = lastJourney > 0.02;
+    const gap = assembling ? activeGap : idleGap;
+    if (now - lastDraw >= gap) {
+      lastDraw = now;
+      render(now);
+    }
     raf = requestAnimationFrame(tick);
   };
 
@@ -727,8 +654,21 @@ export function createLogoGalaxy({
     samples = sampleOfficialMark(markImage);
   }
 
-  fit();
-  play();
+  const boot =
+    typeof requestIdleCallback === "function"
+      ? requestIdleCallback(
+          () => {
+            if (destroyed) return;
+            fit();
+            play();
+          },
+          { timeout: 900 },
+        )
+      : requestAnimationFrame(() => {
+          if (destroyed) return;
+          fit();
+          play();
+        });
 
   return {
     draw(journey, horizontal) {
@@ -757,14 +697,16 @@ export function createLogoGalaxy({
     },
     destroy() {
       destroyed = true;
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(boot as number);
+      }
+      cancelAnimationFrame(boot);
       stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       markImage.src = "";
       if (gl) {
         if (stars) gl.deleteBuffer(stars);
-        if (quad) gl.deleteBuffer(quad);
-        if (nebulaProg) gl.deleteProgram(nebulaProg);
         if (starProg) gl.deleteProgram(starProg);
       }
       host.style.removeProperty("--logo-resolved");
