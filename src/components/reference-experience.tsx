@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
+import { createLogoGalaxy } from "@/lib/logo-galaxy";
 import { mailtoHref, site } from "@/lib/site";
 
 const chapters = ["home", "about", "services", "contact"];
@@ -54,6 +55,8 @@ export function ReferenceExperience({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const galaxyCanvas = useRef<HTMLCanvasElement>(null);
+  const galaxyDock = useRef<HTMLDivElement>(null);
   const [horizontal, setHorizontal] = useState(false);
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState(0);
@@ -66,16 +69,13 @@ export function ReferenceExperience({
     const el = host.current;
     if (!el) return;
     const panels = Array.from(el.querySelectorAll<HTMLElement>(".scene"));
-    const pieces = Array.from(
-      el.querySelectorAll<HTMLElement>(".assembly-piece"),
-    );
-    const assembly = el.querySelector<HTMLElement>(".assembly-stage");
-    const scatter = [
-      { x: -48, y: -46, rotation: -28, scale: 0.76 },
-      { x: 52, y: -28, rotation: 33, scale: 0.9 },
-      { x: -38, y: 38, rotation: 19, scale: 0.8 },
-      { x: 48, y: 56, rotation: -24, scale: 1.02 },
-    ];
+    const galaxy = galaxyCanvas.current
+      ? createLogoGalaxy({
+          canvas: galaxyCanvas.current,
+          dock: galaxyDock.current,
+          host: el,
+        })
+      : null;
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
       "(min-width: 951px) and (min-height: 650px)",
@@ -121,21 +121,11 @@ export function ReferenceExperience({
         panels[3].offsetHeight -
         window.innerHeight +
         52;
-      const journey = reduced.matches
-        ? 1
-        : isHorizontal
-          ? progress / 3
-          : clamp(window.scrollY / Math.max(1, end));
-      pieces.forEach((piece, i) => {
-        const t = clamp((journey - i * 0.035) / (1 - i * 0.035));
-        const remaining = 1 - t * t * (3 - 2 * t);
-        const part = scatter[i];
-        piece.style.transform = `translate3d(${part.x * remaining}%, ${part.y * remaining}%, 0) rotate(${part.rotation * remaining}deg) scale(${1 + (part.scale - 1) * remaining})`;
-      });
-      assembly?.style.setProperty(
-        "--resolved",
-        String(clamp((journey - 0.78) / 0.22)),
-      );
+      const journey = isHorizontal
+        ? progress / 3
+        : clamp(window.scrollY / Math.max(1, end));
+      galaxy?.setReduced(reduced.matches);
+      if (!reduced.matches) galaxy?.draw(journey, isHorizontal);
       const index = Math.round(progress);
       if (index !== previous) {
         previous = index;
@@ -164,6 +154,7 @@ export function ReferenceExperience({
       isHorizontal = wide.matches && !reduced.matches;
       setHorizontal(isHorizontal);
       el.dataset.horizontal = String(isHorizontal);
+      galaxy?.resize();
       queue();
     };
     const navigate = (id: string, smooth = true) => {
@@ -184,10 +175,7 @@ export function ReferenceExperience({
       const top = el.getBoundingClientRect().top + window.scrollY;
       const destination = isHorizontal
         ? top + (index * (el.offsetHeight - innerHeight)) / 3
-        : panels[index].getBoundingClientRect().top +
-          window.scrollY -
-          64 -
-          (assembly?.offsetHeight ?? 0);
+        : panels[index].getBoundingClientRect().top + window.scrollY - 64;
       window.scrollTo({
         top: Math.max(0, destination),
         behavior: smooth && !reduced.matches ? "smooth" : "instant",
@@ -231,6 +219,7 @@ export function ReferenceExperience({
     wide.addEventListener("change", resize);
     reduced.addEventListener("change", resize);
     return () => {
+      galaxy?.destroy();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(resizeFrame);
@@ -268,25 +257,10 @@ export function ReferenceExperience({
   return (
     <>
       <div ref={host} className="experience" data-horizontal={horizontal}>
+        <div className="logo-galaxy" aria-hidden="true">
+          <canvas ref={galaxyCanvas} />
+        </div>
         <div className="experience-viewport">
-          <div className="assembly-stage" aria-hidden="true">
-            <div className="assembly-field">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className={`assembly-piece piece-${i}`} />
-              ))}
-            </div>
-            <div className="assembly-lockup">
-              TWO ELEMENT
-              <br />
-              MEDIA
-            </div>
-            <div className="assembly-services">
-              <span>Content</span>
-              <span>Social</span>
-              <span>Paid</span>
-              <span>Web</span>
-            </div>
-          </div>
           <div className="scene-window">
             <div className="scene-track">
               <section
@@ -442,6 +416,23 @@ export function ReferenceExperience({
                   <br />
                   <span>NEED.</span>
                 </h2>
+                <div
+                  ref={galaxyDock}
+                  className="logo-galaxy-dock"
+                  aria-hidden="true"
+                >
+                  {/* Official raster — sampled by the galaxy; static fallback for reduced motion. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className="logo-galaxy-static"
+                    src="/logo-mark.png"
+                    alt=""
+                    width={1192}
+                    height={1192}
+                    decoding="async"
+                    loading="lazy"
+                  />
+                </div>
                 <div className="contact-bottom">
                   <div>
                     <p>
