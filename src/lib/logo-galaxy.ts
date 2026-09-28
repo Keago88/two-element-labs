@@ -571,6 +571,8 @@ export function createLogoGalaxy({
 
   let overlaySrc = "";
   let overlayAssigned = false;
+  let lastMark = "";
+  let lastLogo = "";
   const ensureOverlay = () => {
     if (overlayAssigned) return;
     if (!overlaySrc) overlaySrc = knockOutMark();
@@ -622,15 +624,21 @@ export function createLogoGalaxy({
     const time = (now - start) / 1000;
     drawn = true;
     const assemble = assembleT(lastJourney);
-    if (assemble > 0.42 || lastJourney > 0.55) {
-      measure();
-    }
+    if (!lastHorizontal && assemble > 0.42) measure();
     const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
-    host.style.setProperty("--logo-resolved", markAlpha.toFixed(3));
-    host.style.setProperty("--logo-x", `${Math.round(logo.x)}px`);
-    host.style.setProperty("--logo-y", `${Math.round(logo.y)}px`);
-    host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
+    const markStr = markAlpha.toFixed(3);
+    if (markStr !== lastMark) {
+      lastMark = markStr;
+      host.style.setProperty("--logo-resolved", markStr);
+    }
+    const logoKey = `${Math.round(logo.x)}:${Math.round(logo.y)}:${Math.round(logo.size)}`;
+    if (logoKey !== lastLogo) {
+      lastLogo = logoKey;
+      host.style.setProperty("--logo-x", `${Math.round(logo.x)}px`);
+      host.style.setProperty("--logo-y", `${Math.round(logo.y)}px`);
+      host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
+    }
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
     const copies = lastHorizontal
