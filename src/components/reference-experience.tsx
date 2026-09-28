@@ -216,20 +216,14 @@ export function ReferenceExperience({
       hash();
       paint();
     });
-    const galaxyBoot =
-      typeof requestIdleCallback === "function"
-        ? requestIdleCallback(
-            () => {
-              startGalaxy();
-              queue();
-            },
-            { timeout: 1200 },
-          )
-        : requestAnimationFrame(() => {
-            startGalaxy();
-            queue();
-          });
+    const startGalaxyOnce = () => {
+      window.removeEventListener("scroll", startGalaxyOnce);
+      startGalaxy();
+      queue();
+    };
+    window.addEventListener("scroll", startGalaxyOnce, { passive: true });
     window.addEventListener("scroll", queue, { passive: true });
+    if (window.scrollY > 8) startGalaxyOnce();
     window.addEventListener("resize", resize);
     window.addEventListener("hashchange", hash);
     document.addEventListener("click", click);
@@ -237,10 +231,7 @@ export function ReferenceExperience({
     reduced.addEventListener("change", resize);
     return () => {
       galaxy?.destroy();
-      if (typeof cancelIdleCallback === "function") {
-        cancelIdleCallback(galaxyBoot as number);
-      }
-      cancelAnimationFrame(galaxyBoot);
+      window.removeEventListener("scroll", startGalaxyOnce);
       cancelAnimationFrame(frame);
       cancelAnimationFrame(initialFrame);
       cancelAnimationFrame(resizeFrame);
