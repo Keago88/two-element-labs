@@ -262,7 +262,7 @@ export function ReferenceExperience({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="logo-galaxy-lock"
-            src="/logo-mark.png"
+            src="/logo-mark-alpha.png"
             alt=""
             width={1192}
             height={1192}
@@ -434,7 +434,7 @@ export function ReferenceExperience({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     className="logo-galaxy-static"
-                    src="/logo-mark.png"
+                    src="/logo-mark-alpha.png"
                     alt=""
                     width={1192}
                     height={1192}

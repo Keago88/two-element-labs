@@ -306,7 +306,7 @@ button:focus-visible {
   aspect-ratio: 1;
   margin: 8px auto 32px;
   pointer-events: none;
-  background: #000;
+  background: transparent;
 }
 .logo-galaxy-static,
 .logo-galaxy-lock {
@@ -328,7 +328,7 @@ button:focus-visible {
   height: var(--logo-size, 280px);
   transform: translate3d(var(--logo-x, 0px), var(--logo-y, 0px), 0);
   opacity: var(--logo-resolved, 0);
-  background: #000;
+  background: transparent;
 }
 .experience[data-horizontal="true"] .logo-galaxy-dock {
   display: none;
