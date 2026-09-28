@@ -114,26 +114,17 @@ export function ReferenceExperience({
         el.style.setProperty("--travel", "0px");
         panels.forEach((panel) => panel.style.setProperty("--drift", "0px"));
       }
-      // One reversible timeline across the entire page, independent of chapter changes.
+      // Linear, reversible gather from the first scroll through Contact.
       let journey = progress / 3;
       if (!isHorizontal) {
         const y = window.scrollY;
-        const gate = window.innerHeight * 0.42;
-        const servicesStart = Math.max(
-          0,
-          panels[2].getBoundingClientRect().top + y - gate,
-        );
         const contactStart = Math.max(
-          servicesStart + 1,
-          panels[3].getBoundingClientRect().top + y - gate,
+          1,
+          panels[3].getBoundingClientRect().top +
+            y -
+            window.innerHeight * 0.42,
         );
-        journey =
-          y <= servicesStart
-            ? ((2 / 3) * y) / Math.max(1, servicesStart)
-            : 2 / 3 +
-              ((1 / 3) * (y - servicesStart)) /
-                Math.max(1, contactStart - servicesStart);
-        journey = clamp(journey);
+        journey = clamp(y / contactStart);
       }
       galaxy?.setReduced(reduced.matches);
       if (!reduced.matches) galaxy?.draw(journey, isHorizontal);

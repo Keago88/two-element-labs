@@ -42,14 +42,12 @@ void main() {
   float size = a0.w;
   vec2 logoUV = a1.xy;
   float bright = a1.z;
-  float delay = a1.w;
   vec3 color = a2.xyz;
   float twinkle = a2.w;
   float layer = a3.x;
   float pull = a3.y;
 
-  float t = clamp((u_assemble - delay) / max(0.18, 1.0 - delay), 0.0, 1.0);
-  t = t * t * (3.0 - 2.0 * t);
+  float t = clamp(u_assemble, 0.0, 1.0);
   float spin = u_spin * mix(0.15, 1.0, layer) * (1.0 - t);
   float swirl = (1.0 - t) * (0.35 + depth * 0.4);
   float ang = theta + spin + swirl;
@@ -125,8 +123,6 @@ function mulberry32(seed: number) {
   };
 }
 
-const SERVICES_START = 2 / 3;
-
 function censusOf(data: Float32Array, count: number) {
   let unfinished = 0;
   let stray = 0;
@@ -138,8 +134,7 @@ function censusOf(data: Float32Array, count: number) {
     const u = data[o + 4];
     const v = data[o + 5];
     maxDelay = Math.max(maxDelay, delay);
-    const t = clamp((1 - delay) / Math.max(0.18, 1 - delay));
-    if (t < 0.999 || pull < 0.999) unfinished += 1;
+    if (pull < 0.999) unfinished += 1;
     if (pull < 0.999 || u < 0 || u > 1 || v < 0 || v > 1) stray += 1;
   }
   return {
@@ -154,8 +149,7 @@ function censusOf(data: Float32Array, count: number) {
 export type GatherCensus = ReturnType<typeof censusOf>;
 
 function assembleT(journey: number) {
-  if (journey <= SERVICES_START) return 0;
-  return smoothstep((journey - SERVICES_START) / (1 - SERVICES_START));
+  return clamp(journey);
 }
 
 function budgets(width: number, dpr: number) {
@@ -464,17 +458,21 @@ export function createLogoGalaxy({
   const live: {
     journey: number;
     assemble: number;
+    target: number;
     starCount: number;
     horizontal: boolean;
     census: ReturnType<typeof censusOf> | null;
   } = {
     journey: 0,
     assemble: 0,
+    target: 0,
     starCount: 0,
     horizontal: false,
     census: null,
   };
   const start = performance.now();
+  let shownAssemble = 0;
+  let lastNow = start;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -579,9 +577,18 @@ export function createLogoGalaxy({
     if (!gl || destroyed || reduced || hidden || offscreen) return;
     if (!starProg || !starLoc || !stars || !starCount) return;
     const time = (now - start) / 1000;
-    const assemble = assembleT(lastJourney);
-    if (!cachedLogo || assemble > 0.55) {
-      cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
+    const target = assembleT(lastJourney);
+    const dt = Math.min(32, Math.max(0, now - lastNow));
+    lastNow = now;
+    const follow = 1 - Math.exp(-dt / 90);
+    shownAssemble += (target - shownAssemble) * follow;
+    if (Math.abs(target - shownAssemble) < 0.002) shownAssemble = target;
+    const assemble = shownAssemble;
+    if (!lastHorizontal) {
+      measure();
+      cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, false);
+    } else if (!cachedLogo || assemble > 0.55) {
+      cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, true);
     }
     const logo = cachedLogo;
     writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
@@ -592,6 +599,7 @@ export function createLogoGalaxy({
     }
     live.journey = lastJourney;
     live.assemble = assemble;
+    live.target = target;
     live.horizontal = lastHorizontal;
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
@@ -628,7 +636,7 @@ export function createLogoGalaxy({
       gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
       gl.uniform2f(starLoc.center, cx, cy);
       gl.uniform1f(starLoc.maxSize, maxPointSize);
-      heroFast = assemble <= 0;
+      heroFast = target <= 0 && assemble <= 0;
     }
     gl.uniform1f(starLoc.time, time);
     gl.uniform1f(starLoc.spin, time * 0.045);
