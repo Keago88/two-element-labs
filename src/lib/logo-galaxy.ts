@@ -1,4 +1,12 @@
+import { precomputedLogoSamples } from "@/lib/logo-mark-samples";
+
 type Sample = { u: number; v: number; lum: number; kind: 0 | 1 };
+
+let cachedSamples: Sample[] | null = null;
+function logoSamples(): Sample[] {
+  if (!cachedSamples) cachedSamples = precomputedLogoSamples();
+  return cachedSamples;
+}
 
 export type LogoGalaxy = {
   draw: (journey: number, horizontal: boolean) => void;
@@ -8,17 +16,7 @@ export type LogoGalaxy = {
   destroy: () => void;
 };
 
-const MARK_SRC = "/logo-mark.png";
-const SAMPLE = 144;
 const FLOATS = 16;
-const TRI = {
-  ax: 0.498,
-  ay: 0.13,
-  bx: 0.103,
-  by: 0.863,
-  cx: 0.899,
-  cy: 0.863,
-};
 
 const STAR_VERT = `
 attribute vec4 a0;
@@ -131,37 +129,6 @@ function mulberry32(seed: number) {
   };
 }
 
-function orient(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-  cx: number,
-  cy: number,
-) {
-  return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-}
-
-function inLogoTriangle(u: number, v: number) {
-  const { ax, ay, bx, by, cx, cy } = TRI;
-  const pad = 0.03;
-  const mx = (ax + bx + cx) / 3;
-  const my = (ay + by + cy) / 3;
-  const expand = (x: number, y: number) => {
-    const dx = x - mx;
-    const dy = y - my;
-    const n = Math.hypot(dx, dy) || 1;
-    return [x + (dx / n) * pad, y + (dy / n) * pad] as const;
-  };
-  const [ax2, ay2] = expand(ax, ay);
-  const [bx2, by2] = expand(bx, by);
-  const [cx2, cy2] = expand(cx, cy);
-  const b1 = orient(u, v, ax2, ay2, bx2, by2) < 0;
-  const b2 = orient(u, v, bx2, by2, cx2, cy2) < 0;
-  const b3 = orient(u, v, cx2, cy2, ax2, ay2) < 0;
-  return b1 === b2 && b2 === b3;
-}
-
 function assembleT(journey: number) {
   const t = clamp(journey);
   const mapped =
@@ -171,30 +138,6 @@ function assembleT(journey: number) {
         ? 0.04 + ((t - 0.18) / 0.44) * 0.36
         : 0.4 + ((t - 0.62) / 0.38) * 0.6;
   return smoothstep(mapped);
-}
-
-function sampleOfficialMark(image: HTMLImageElement): Sample[] {
-  const canvas = document.createElement("canvas");
-  canvas.width = SAMPLE;
-  canvas.height = SAMPLE;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return [];
-  ctx.drawImage(image, 0, 0, SAMPLE, SAMPLE);
-  const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE);
-  const samples: Sample[] = [];
-  for (let y = 0; y < SAMPLE; y += 1) {
-    for (let x = 0; x < SAMPLE; x += 1) {
-      const i = (y * SAMPLE + x) * 4;
-      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3 / 255;
-      const u = x / (SAMPLE - 1);
-      const v = y / (SAMPLE - 1);
-      if (lum > 0.16) samples.push({ u, v, lum, kind: 1 });
-      else if (inLogoTriangle(u, v) && x % 2 === 0 && y % 2 === 0) {
-        samples.push({ u, v, lum, kind: 0 });
-      }
-    }
-  }
-  return samples;
 }
 
 function budgets(width: number, dpr: number) {
@@ -474,7 +417,7 @@ export function createLogoGalaxy({
       stencil: false,
     })) as WebGLRenderingContext | null;
 
-  let samples: Sample[] = [];
+  const samples = logoSamples();
   let reduced = false;
   let hidden = typeof document !== "undefined" ? document.hidden : false;
   let offscreen = false;
@@ -486,13 +429,19 @@ export function createLogoGalaxy({
   let lastHorizontal = false;
   let starCount = 0;
   let raf = 0;
-  let lastDraw = 0;
   let maxPointSize = 64;
   let canvasBox: DOMRect | null = null;
   let dockBox: DOMRect | null = null;
+  let attribsBound = false;
+  let intro = true;
+  let lastMark = "";
+  let lastLogoX = "";
+  let lastLogoY = "";
+  let lastLogoSize = "";
+  let lastDrawnJourney = Number.NaN;
+  let lastDrawnHorizontal = false;
   const start = performance.now();
-  const idleGap = 1000 / 10;
-  const activeGap = 1000 / 30;
+  const introUntil = start + 2400;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -522,10 +471,6 @@ export function createLogoGalaxy({
         }
       : null;
 
-  const markImage = new Image();
-  markImage.decoding = "async";
-  markImage.alt = "";
-
   const isPaused = () => hidden || offscreen || reduced || !gl;
 
   const uploadStars = () => {
@@ -534,6 +479,7 @@ export function createLogoGalaxy({
     starCount = field.count;
     gl.bindBuffer(gl.ARRAY_BUFFER, stars);
     gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
+    attribsBound = false;
   };
 
   const measure = () => {
@@ -546,7 +492,7 @@ export function createLogoGalaxy({
     const next = canvasBox ?? canvas.getBoundingClientRect();
     const nextDpr = Math.min(
       window.devicePixelRatio || 1,
-      next.width < 951 ? 1.25 : 1.75,
+      next.width < 951 ? 1.25 : 1.5,
     );
     const w = Math.max(1, Math.round(next.width));
     const h = Math.max(1, Math.round(next.height));
@@ -562,18 +508,35 @@ export function createLogoGalaxy({
     uploadStars();
   };
 
+  const writeLogoVars = (logo: { x: number; y: number; size: number }, mark: string) => {
+    if (mark !== lastMark) {
+      lastMark = mark;
+      host.style.setProperty("--logo-resolved", mark);
+    }
+    const x = `${Math.round(logo.x)}px`;
+    const y = `${Math.round(logo.y)}px`;
+    const size = `${Math.round(logo.size)}px`;
+    if (x !== lastLogoX) {
+      lastLogoX = x;
+      host.style.setProperty("--logo-x", x);
+    }
+    if (y !== lastLogoY) {
+      lastLogoY = y;
+      host.style.setProperty("--logo-y", y);
+    }
+    if (size !== lastLogoSize) {
+      lastLogoSize = size;
+      host.style.setProperty("--logo-size", size);
+    }
+  };
+
   const render = (now: number) => {
     if (!gl || destroyed || reduced || hidden || offscreen) return;
     if (!starProg || !starLoc || !stars || !starCount) return;
     const time = (now - start) / 1000;
     const assemble = assembleT(lastJourney);
-    if (assemble > 0.55) measure();
     const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
-    const markAlpha = smoothstep((assemble - 0.8) / 0.18);
-    host.style.setProperty("--logo-resolved", markAlpha.toFixed(3));
-    host.style.setProperty("--logo-x", `${Math.round(logo.x)}px`);
-    host.style.setProperty("--logo-y", `${Math.round(logo.y)}px`);
-    host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
+    writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
 
@@ -584,15 +547,18 @@ export function createLogoGalaxy({
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(starProg);
     gl.bindBuffer(gl.ARRAY_BUFFER, stars);
-    const stride = FLOATS * 4;
-    const bind = (loc: number, offset: number) => {
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, stride, offset * 4);
-    };
-    bind(starLoc.a0, 0);
-    bind(starLoc.a1, 4);
-    bind(starLoc.a2, 8);
-    bind(starLoc.a3, 12);
+    if (!attribsBound) {
+      const stride = FLOATS * 4;
+      const bind = (loc: number, offset: number) => {
+        gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, stride, offset * 4);
+      };
+      bind(starLoc.a0, 0);
+      bind(starLoc.a1, 4);
+      bind(starLoc.a2, 8);
+      bind(starLoc.a3, 12);
+      attribsBound = true;
+    }
     gl.uniform2f(starLoc.res, cssW, cssH);
     gl.uniform1f(starLoc.time, time);
     gl.uniform1f(starLoc.assemble, assemble);
@@ -603,18 +569,19 @@ export function createLogoGalaxy({
     gl.uniform2f(starLoc.center, cx, cy);
     gl.uniform1f(starLoc.maxSize, maxPointSize);
     gl.drawArrays(gl.POINTS, 0, starCount);
+    lastDrawnJourney = lastJourney;
+    lastDrawnHorizontal = lastHorizontal;
   };
 
   const tick = (now: number) => {
     raf = 0;
     if (destroyed || isPaused()) return;
-    const assembling = lastJourney > 0.02;
-    const gap = assembling ? activeGap : idleGap;
-    if (now - lastDraw >= gap) {
-      lastDraw = now;
-      render(now);
+    render(now);
+    if (intro && now < introUntil && !isPaused()) {
+      raf = requestAnimationFrame(tick);
+    } else {
+      intro = false;
     }
-    raf = requestAnimationFrame(tick);
   };
 
   const play = () => {
@@ -644,43 +611,34 @@ export function createLogoGalaxy({
   };
   document.addEventListener("visibilitychange", onVisibility);
 
-  markImage.addEventListener("load", () => {
+  const boot = requestAnimationFrame(() => {
     if (destroyed) return;
-    samples = sampleOfficialMark(markImage);
-    uploadStars();
+    fit();
+    play();
   });
-  markImage.src = MARK_SRC;
-  if (markImage.complete && markImage.naturalWidth) {
-    samples = sampleOfficialMark(markImage);
-  }
-
-  const boot =
-    typeof requestIdleCallback === "function"
-      ? requestIdleCallback(
-          () => {
-            if (destroyed) return;
-            fit();
-            play();
-          },
-          { timeout: 900 },
-        )
-      : requestAnimationFrame(() => {
-          if (destroyed) return;
-          fit();
-          play();
-        });
 
   return {
     draw(journey, horizontal) {
+      const same = journey === lastJourney && horizontal === lastHorizontal;
       lastJourney = journey;
       lastHorizontal = horizontal;
-      if (!raf && !isPaused()) play();
+      if (assembleT(journey) > 0.55 && !same) measure();
+      if (
+        same &&
+        !intro &&
+        journey === lastDrawnJourney &&
+        horizontal === lastDrawnHorizontal
+      ) {
+        return;
+      }
+      if (!raf && !isPaused() && cssW) play();
     },
     setReduced(next) {
       if (reduced === next) return;
       reduced = next;
       if (reduced) {
         stop();
+        intro = false;
         host.style.setProperty("--logo-resolved", "1");
       } else {
         play();
@@ -697,14 +655,10 @@ export function createLogoGalaxy({
     },
     destroy() {
       destroyed = true;
-      if (typeof cancelIdleCallback === "function") {
-        cancelIdleCallback(boot as number);
-      }
       cancelAnimationFrame(boot);
       stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
-      markImage.src = "";
       if (gl) {
         if (stars) gl.deleteBuffer(stars);
         if (starProg) gl.deleteProgram(starProg);
