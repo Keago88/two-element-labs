@@ -1076,5 +1076,4 @@ body:not(:has(.experience)) main {
 .experience[data-horizontal="true"] .scene-window {
   height: 100%;
   clip-path: inset(0 44% 0 0);
-  background: rgb(5 7 13 / 70%);
 }

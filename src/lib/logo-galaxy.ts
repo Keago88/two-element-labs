@@ -711,6 +711,7 @@ export function createLogoGalaxy({
   markImage.addEventListener("load", () => {
     if (destroyed) return;
     samples = sampleOfficialMark(markImage);
+    overlaySrc = knockOutMark();
     uploadStars();
     if (reduced) ensureOverlay();
     play();
@@ -718,6 +719,7 @@ export function createLogoGalaxy({
   markImage.src = MARK_SRC;
   if (markImage.complete && markImage.naturalWidth) {
     samples = sampleOfficialMark(markImage);
+    overlaySrc = knockOutMark();
     if (reduced) ensureOverlay();
   }
 
