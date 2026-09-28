@@ -635,8 +635,11 @@ export function createLogoGalaxy({
     host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
-    const copies =
-      lastJourney > 0.35 || lastHorizontal ? copyNodes() : [null, null, null];
+    const copies = lastHorizontal
+      ? ([null, null, null] as const)
+      : lastJourney > 0.35
+        ? copyNodes()
+        : ([null, null, null] as const);
     const r0 = copyRect(copies[0]);
     const r1 = copyRect(copies[1]);
     const r2 = copyRect(copies[2]);

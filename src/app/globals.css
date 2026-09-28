@@ -519,6 +519,10 @@ button:focus-visible {
   background: #05070d;
   box-shadow: 0 0 56px 40px #05070d;
 }
+.experience .scene-contact .editorial-title span {
+  background: #05070d;
+  box-shadow: 0 0 28px 14px #05070d;
+}
 .experience .contact-bottom p,
 .experience .contact-email,
 .experience .contact-socials a,
