@@ -107,11 +107,6 @@ function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
 }
 
-function smoothstep(value: number) {
-  const t = clamp(value);
-  return t * t * (3 - 2 * t);
-}
-
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
@@ -482,6 +477,7 @@ export function createLogoGalaxy({
     ".logo-galaxy-fade",
   );
   let heroFast = false;
+  let logoReveal = 0;
   const live: {
     journey: number;
     assemble: number;
@@ -492,6 +488,7 @@ export function createLogoGalaxy({
     logoX: number;
     logoY: number;
     logoSize: number;
+    logoResolved: number;
   } = {
     journey: 0,
     assemble: 0,
@@ -502,6 +499,7 @@ export function createLogoGalaxy({
     logoX: 0,
     logoY: 0,
     logoSize: 0,
+    logoResolved: 0,
   };
   const start = performance.now();
   let shownAssemble = 0;
@@ -640,7 +638,12 @@ export function createLogoGalaxy({
       cachedLogo = logoRect(cssW, cssH, dockBox, canvasBox, true);
     }
     const logo = cachedLogo;
-    writeLogoVars(logo, smoothstep((assemble - 0.8) / 0.18).toFixed(3));
+    if (assemble >= 0.995) {
+      logoReveal = Math.min(1, logoReveal + dt / 120);
+    } else {
+      logoReveal = 0;
+    }
+    writeLogoVars(logo, logoReveal.toFixed(3));
     writeFade(assemble);
     live.journey = lastJourney;
     live.assemble = assemble;
@@ -649,6 +652,7 @@ export function createLogoGalaxy({
     live.logoX = logo.x;
     live.logoY = logo.y;
     live.logoSize = logo.size;
+    live.logoResolved = logoReveal;
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
 
