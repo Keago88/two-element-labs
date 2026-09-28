@@ -262,10 +262,9 @@ export function ReferenceExperience({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="logo-galaxy-lock"
-            src="/logo-mark-alpha.png"
             alt=""
-            width={1192}
-            height={1192}
+            width={320}
+            height={320}
             decoding="async"
           />
         </div>
@@ -434,12 +433,10 @@ export function ReferenceExperience({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     className="logo-galaxy-static"
-                    src="/logo-mark-alpha.png"
                     alt=""
-                    width={1192}
-                    height={1192}
+                    width={320}
+                    height={320}
                     decoding="async"
-                    loading="lazy"
                   />
                 </div>
                 <div className="contact-bottom">

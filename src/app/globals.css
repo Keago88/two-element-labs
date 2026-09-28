@@ -231,13 +231,11 @@ button:focus-visible {
 }
 .experience {
   position: relative;
-  overflow-x: clip;
   background: #05070d;
   color: #ecece6;
 }
 .experience-viewport {
   position: relative;
-  z-index: 1;
   overflow: clip;
 }
 .scene-track {
@@ -257,10 +255,11 @@ button:focus-visible {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  isolation: isolate;
   background-color: #05070d;
   background-image:
-    radial-gradient(ellipse 48% 36% at 64% 46%, rgba(255, 100, 61, 0.22), transparent 64%),
-    radial-gradient(ellipse 26% 20% at 57% 51%, rgba(255, 198, 128, 0.14), transparent 70%),
+    radial-gradient(ellipse 48% 36% at 64% 46%, rgba(222, 70, 37, 0.2), transparent 64%),
+    radial-gradient(ellipse 26% 20% at 57% 51%, rgba(222, 140, 90, 0.12), transparent 70%),
     radial-gradient(ellipse 60% 50% at 74% 36%, rgba(72, 108, 168, 0.14), transparent 72%),
     radial-gradient(ellipse 70% 55% at 28% 72%, rgba(36, 58, 110, 0.12), transparent 75%);
 }
@@ -274,7 +273,7 @@ button:focus-visible {
 }
 .logo-galaxy::before {
   background:
-    radial-gradient(ellipse 24% 14% at 52% 46%, rgba(255, 120, 70, 0.12), transparent 58%),
+    radial-gradient(ellipse 24% 14% at 52% 46%, rgba(222, 70, 37, 0.11), transparent 58%),
     radial-gradient(ellipse 42% 18% at 64% 56%, rgba(180, 140, 90, 0.07), transparent 62%);
   animation: galaxy-drift 140s linear infinite;
 }
@@ -313,11 +312,16 @@ button:focus-visible {
   display: block;
   object-fit: contain;
   pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.logo-galaxy-static[src],
+.logo-galaxy-lock[src] {
+  opacity: var(--logo-resolved, 0);
 }
 .logo-galaxy-static {
   width: 100%;
   height: 100%;
-  opacity: var(--logo-resolved, 0);
 }
 .logo-galaxy-lock {
   position: absolute;
@@ -327,7 +331,6 @@ button:focus-visible {
   width: var(--logo-size, 280px);
   height: var(--logo-size, 280px);
   transform: translate3d(var(--logo-x, 0px), var(--logo-y, 0px), 0);
-  opacity: var(--logo-resolved, 0);
   background: transparent;
 }
 .experience[data-horizontal="true"] .logo-galaxy-dock {
@@ -428,7 +431,7 @@ button:focus-visible {
   padding-top: var(--header);
 }
 .experience[data-horizontal="false"] .scene {
-  scroll-margin-top: var(--header);
+  scroll-margin-top: 294px;
 }
 .experience[data-horizontal="false"] .scene-home {
   min-height: 0;
@@ -448,8 +451,8 @@ button:focus-visible {
   .logo-galaxy::after {
     animation: none;
   }
-  .logo-galaxy-static,
-  .logo-galaxy-lock {
+  .logo-galaxy-static[src],
+  .logo-galaxy-lock[src] {
     opacity: 1;
   }
   .experience[data-horizontal="true"] .logo-galaxy-dock {
@@ -480,7 +483,7 @@ button:focus-visible {
   letter-spacing: -0.065em;
 }
 .editorial-title span {
-  color: #ff643d;
+  color: #de4625;
 }
 .experience .editorial-title {
   color: #f6f6f1;
@@ -496,24 +499,20 @@ button:focus-visible {
 .experience .service-description p,
 .experience .service-description small,
 .experience .studio-photo figcaption {
-  color: #b7b7ae;
+  color: #e8e8e0;
 }
 .experience .text-cta {
   color: #f3f3ed;
 }
-.experience .service-row,
-.experience .service-row:last-child {
-  border-color: rgb(255 255 255 / 16%);
-}
-.experience .service-number {
-  color: #8d8d85;
-}
 .experience .contact-email,
 .experience .contact-socials a {
-  color: #e8e8e2;
+  color: #f2f2ec;
 }
-.experience .chapter-bar {
-  color: #111;
+.experience .contact-bottom p,
+.experience .contact-email,
+.experience .contact-socials a,
+.experience .scene-contact .editorial-title {
+  text-shadow: 0 0 14px #05070d, 0 1px 22px #05070d;
 }
 .home-bottom,
 .contact-bottom {
@@ -806,9 +805,6 @@ button:focus-visible {
   text-decoration: underline;
 }
 .site-footer {
-  position: relative;
-  z-index: 20;
-  background: var(--background);
   padding: 45px 5% 76px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

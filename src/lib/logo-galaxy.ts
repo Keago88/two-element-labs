@@ -34,8 +34,15 @@ uniform float u_horizontal;
 uniform vec4 u_logo;
 uniform vec2 u_center;
 uniform float u_maxSize;
+uniform vec4 u_copy0;
+uniform vec4 u_copy1;
+uniform vec4 u_copy2;
 varying vec3 v_color;
 varying float v_alpha;
+
+float copyMask(vec2 pos, vec4 r) {
+  return step(r.x, pos.x) * step(pos.x, r.z) * step(r.y, pos.y) * step(pos.y, r.w);
+}
 
 void main() {
   float theta = a0.x;
@@ -74,24 +81,32 @@ void main() {
   clip.y *= -1.0;
   gl_Position = vec4(clip, 0.0, 1.0);
 
-  float tw = 0.72 + 0.28 * sin(u_time * (1.1 + twinkle * 1.8) + twinkle * 12.0);
-  float perspective = mix(0.7, 1.35, depth);
+  float tw = 0.85 + 0.15 * sin(u_time * (0.7 + twinkle * 0.9) + twinkle * 12.0);
+  float perspective = mix(0.75, 1.2, depth);
   float point = size * perspective * tw * u_dpr;
-  point *= mix(1.0, 1.25, layer);
+  point *= mix(1.0, 1.15, layer);
   point *= mix(1.0, 0.55, t * pull);
   gl_PointSize = clamp(point, 1.0, u_maxSize);
 
   float contentDim = 1.0;
   if (u_horizontal > 0.5) {
-    float k = smoothstep(0.34, 0.62, pos.x / u_res.x);
-    contentDim = mix(0.28, 1.0, k);
-  } else {
-    contentDim = mix(0.42, 1.0, t);
+    contentDim = smoothstep(0.54, 0.64, pos.x / u_res.x);
+  }
+  float masked = max(
+    copyMask(pos, u_copy0),
+    max(copyMask(pos, u_copy1), copyMask(pos, u_copy2))
+  );
+  if (masked > 0.5 || contentDim < 0.05) {
+    gl_Position = vec4(2.0, 2.0, 0.0, 1.0);
+    gl_PointSize = 1.0;
+    v_color = color;
+    v_alpha = 0.0;
+    return;
   }
 
-  float fadeFar = mix(1.0, 0.55, t * (1.0 - pull));
+  float fadeFar = mix(1.0, 0.45, t * (1.0 - pull));
   v_color = color;
-  v_alpha = bright * tw * contentDim * fadeFar * mix(0.55, 1.0, layer);
+  v_alpha = bright * tw * contentDim * fadeFar * mix(0.5, 1.0, layer);
 }
 `;
 
@@ -102,10 +117,9 @@ varying float v_alpha;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = dot(p, p);
-  if (d > 1.0) discard;
-  float glow = exp(-d * 2.6);
-  float core = exp(-d * 16.0);
-  vec3 col = v_color * (0.5 * glow + 1.35 * core);
+  float glow = exp(-d * 3.2) * step(d, 1.0);
+  float core = exp(-d * 14.0) * step(d, 1.0);
+  vec3 col = v_color * (0.45 * glow + 1.2 * core);
   float alpha = v_alpha * glow;
   gl_FragColor = vec4(col * alpha, alpha);
 }
@@ -197,21 +211,15 @@ function sampleOfficialMark(image: HTMLImageElement): Sample[] {
   return samples;
 }
 
-function budgets(width: number, dpr: number) {
-  const mobile = width < 951;
-  const low = dpr <= 1.25 || (mobile && dpr < 2);
-  if (mobile) {
-    return low
-      ? { far: 700, spiral: 900, near: 160, logo: 420 }
-      : { far: 1000, spiral: 1300, near: 220, logo: 560 };
+function budgets(width: number) {
+  if (width < 951) {
+    return { far: 640, spiral: 880, near: 100, logo: 360 };
   }
-  return low
-    ? { far: 2600, spiral: 3200, near: 480, logo: 1200 }
-    : { far: 3800, spiral: 5200, near: 720, logo: 1800 };
+  return { far: 1000, spiral: 1200, near: 140, logo: 420 };
 }
 
 function starColor(rand: () => number, accent: boolean): [number, number, number] {
-  if (accent) return [1, 0.42 + rand() * 0.16, 0.24];
+  if (accent) return [0.87, 0.28, 0.15];
   const roll = rand();
   if (roll < 0.12) return [0.7, 0.84, 1];
   if (roll < 0.28) return [1, 0.78, 0.52];
@@ -261,11 +269,10 @@ function writeStar(
 function buildField(
   samples: Sample[],
   width: number,
-  dpr: number,
   seed: number,
 ) {
   const rand = mulberry32(seed);
-  const { far, spiral, near, logo } = budgets(width, dpr);
+  const { far, spiral, near, logo } = budgets(width);
   const count = far + spiral + near + (samples.length ? logo : 0);
   const data = new Float32Array(count * FLOATS);
   let i = 0;
@@ -320,7 +327,7 @@ function buildField(
       theta,
       radius,
       z: 0.35 + rand() * 0.5,
-      size: core ? 6 + rand() * 6 : 1.8 + rand() * 3.4,
+            size: core ? 2.6 + rand() * 2.2 : 1.2 + rand() * 1.8,
       bright: core ? 1 : 0.35 + rand() * 0.5,
       delay: along * 0.18 + rand() * 0.08,
       u: 0.5 + (rand() - 0.5) * 0.3,
@@ -338,7 +345,7 @@ function buildField(
       theta: along * 5.2 + arm * 2.094395 + (rand() - 0.5) * 0.2,
       radius: 0.12 + along * 0.85,
       z: 0.7 + rand() * 0.3,
-      size: 3.2 + rand() * 5.5,
+      size: 1.6 + rand() * 2.2,
       bright: 0.45 + rand() * 0.5,
       delay: 0.08 + rand() * 0.2,
       color: starColor(rand, rand() < 0.16),
@@ -366,7 +373,7 @@ function buildField(
           theta: along * 5.6 + arm * 2.094395 + (rand() - 0.5) * 0.1,
           radius: 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.02,
           z: 0.45 + rand() * 0.4,
-          size: sample.kind === 1 ? 2.2 + sample.lum * 2.4 : 1.6,
+          size: sample.kind === 1 ? 1.4 + sample.lum * 1.4 : 1.1,
           bright: 0.55 + sample.lum * 0.45,
           delay: along * 0.12 + rand() * 0.06,
           u: sample.u,
@@ -486,13 +493,11 @@ export function createLogoGalaxy({
   let lastHorizontal = false;
   let starCount = 0;
   let raf = 0;
-  let lastDraw = 0;
-  let maxPointSize = 64;
+  let drawn = false;
+  let maxPointSize = 40;
   let canvasBox: DOMRect | null = null;
   let dockBox: DOMRect | null = null;
   const start = performance.now();
-  const idleGap = 1000 / 10;
-  const activeGap = 1000 / 30;
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -500,7 +505,7 @@ export function createLogoGalaxy({
     const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as
       | Float32Array
       | number[];
-    maxPointSize = Math.min(72, range?.[1] || 64);
+    maxPointSize = Math.min(40, range?.[1] || 32);
   }
 
   const starLoc =
@@ -519,21 +524,61 @@ export function createLogoGalaxy({
           logo: gl.getUniformLocation(starProg, "u_logo"),
           center: gl.getUniformLocation(starProg, "u_center"),
           maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+          copy0: gl.getUniformLocation(starProg, "u_copy0"),
+          copy1: gl.getUniformLocation(starProg, "u_copy1"),
+          copy2: gl.getUniformLocation(starProg, "u_copy2"),
         }
       : null;
 
   const markImage = new Image();
   markImage.decoding = "async";
   markImage.alt = "";
+  const lockImg = host.querySelector<HTMLImageElement>(".logo-galaxy-lock");
+  const staticImg = host.querySelector<HTMLImageElement>(".logo-galaxy-static");
+  const copyNodes = () =>
+    [
+      host.querySelector<HTMLElement>(".scene-contact .editorial-title"),
+      host.querySelector<HTMLElement>(".scene-contact .contact-bottom"),
+      host.querySelector<HTMLElement>(".scene-contact .contact-socials"),
+    ] as const;
 
   const isPaused = () => hidden || offscreen || reduced || !gl;
 
   const uploadStars = () => {
     if (!gl || !stars || !cssW) return;
-    const field = buildField(samples, cssW, dpr, 90210 + Math.round(cssW));
+    const field = buildField(samples, cssW, 90210 + Math.round(cssW));
     starCount = field.count;
     gl.bindBuffer(gl.ARRAY_BUFFER, stars);
     gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
+  };
+
+  const knockOutMark = () => {
+    if (!markImage.naturalWidth) return "";
+    const c = document.createElement("canvas");
+    c.width = markImage.naturalWidth;
+    c.height = markImage.naturalHeight;
+    const ctx = c.getContext("2d");
+    if (!ctx) return "";
+    ctx.drawImage(markImage, 0, 0);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = Math.max(d[i], d[i + 1], d[i + 2]);
+      d[i + 3] = lum <= 10 ? 0 : lum;
+    }
+    ctx.putImageData(img, 0, 0);
+    return c.toDataURL("image/png");
+  };
+
+  let overlaySrc = "";
+  let overlayAssigned = false;
+  const ensureOverlay = () => {
+    if (overlayAssigned) return;
+    if (!overlaySrc) overlaySrc = knockOutMark();
+    if (!overlaySrc) return;
+    overlayAssigned = true;
+    if (lockImg) lockImg.src = overlaySrc;
+    if (staticImg) staticImg.src = overlaySrc;
   };
 
   const measure = () => {
@@ -541,13 +586,23 @@ export function createLogoGalaxy({
     dockBox = dock?.getBoundingClientRect() ?? null;
   };
 
+  const copyRect = (el: HTMLElement | null): [number, number, number, number] => {
+    if (!el || !canvasBox) return [0, 0, -1, -1];
+    const r = el.getBoundingClientRect();
+    const padX = 32;
+    const padY = 28;
+    return [
+      r.left - canvasBox.left - padX,
+      r.top - canvasBox.top - padY,
+      r.right - canvasBox.left + padX,
+      r.bottom - canvasBox.top + padY,
+    ];
+  };
+
   const fit = () => {
     measure();
     const next = canvasBox ?? canvas.getBoundingClientRect();
-    const nextDpr = Math.min(
-      window.devicePixelRatio || 1,
-      next.width < 951 ? 1.25 : 1.75,
-    );
+    const nextDpr = Math.min(window.devicePixelRatio || 1, 1);
     const w = Math.max(1, Math.round(next.width));
     const h = Math.max(1, Math.round(next.height));
     if (w === cssW && h === cssH && nextDpr === dpr) return;
@@ -566,8 +621,12 @@ export function createLogoGalaxy({
     if (!gl || destroyed || reduced || hidden || offscreen) return;
     if (!starProg || !starLoc || !stars || !starCount) return;
     const time = (now - start) / 1000;
+    drawn = true;
     const assemble = assembleT(lastJourney);
-    if (assemble > 0.55) measure();
+    if (assemble > 0.42 || lastJourney > 0.55 || reduced) {
+      measure();
+      ensureOverlay();
+    }
     const logo = logoRect(cssW, cssH, dockBox, canvasBox, lastHorizontal);
     const markAlpha = smoothstep((assemble - 0.8) / 0.18);
     host.style.setProperty("--logo-resolved", markAlpha.toFixed(3));
@@ -576,6 +635,10 @@ export function createLogoGalaxy({
     host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
     const cx = lastHorizontal ? 0.64 : 0.5;
     const cy = 0.48;
+    const copies = copyNodes();
+    const r0 = copyRect(copies[0]);
+    const r1 = copyRect(copies[1]);
+    const r2 = copyRect(copies[2]);
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -602,19 +665,16 @@ export function createLogoGalaxy({
     gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
     gl.uniform2f(starLoc.center, cx, cy);
     gl.uniform1f(starLoc.maxSize, maxPointSize);
+    gl.uniform4f(starLoc.copy0, r0[0], r0[1], r0[2], r0[3]);
+    gl.uniform4f(starLoc.copy1, r1[0], r1[1], r1[2], r1[3]);
+    gl.uniform4f(starLoc.copy2, r2[0], r2[1], r2[2], r2[3]);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
   const tick = (now: number) => {
     raf = 0;
     if (destroyed || isPaused()) return;
-    const assembling = lastJourney > 0.02;
-    const gap = assembling ? activeGap : idleGap;
-    if (now - lastDraw >= gap) {
-      lastDraw = now;
-      render(now);
-    }
-    raf = requestAnimationFrame(tick);
+    render(now);
   };
 
   const play = () => {
@@ -648,10 +708,13 @@ export function createLogoGalaxy({
     if (destroyed) return;
     samples = sampleOfficialMark(markImage);
     uploadStars();
+    if (reduced) ensureOverlay();
+    play();
   });
   markImage.src = MARK_SRC;
   if (markImage.complete && markImage.naturalWidth) {
     samples = sampleOfficialMark(markImage);
+    if (reduced) ensureOverlay();
   }
 
   const boot =
@@ -672,8 +735,11 @@ export function createLogoGalaxy({
 
   return {
     draw(journey, horizontal) {
+      const same =
+        drawn && journey === lastJourney && horizontal === lastHorizontal;
       lastJourney = journey;
       lastHorizontal = horizontal;
+      if (same) return;
       if (!raf && !isPaused()) play();
     },
     setReduced(next) {
@@ -682,6 +748,7 @@ export function createLogoGalaxy({
       if (reduced) {
         stop();
         host.style.setProperty("--logo-resolved", "1");
+        ensureOverlay();
       } else {
         play();
       }
