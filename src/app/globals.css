@@ -232,6 +232,8 @@ button:focus-visible {
 .experience {
   position: relative;
   overflow-x: clip;
+  background: #05070d;
+  color: #ecece6;
 }
 .experience-viewport {
   position: relative;
@@ -255,6 +257,7 @@ button:focus-visible {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  background: #05070d;
 }
 .logo-galaxy canvas {
   display: block;
@@ -266,15 +269,33 @@ button:focus-visible {
   aspect-ratio: 1;
   margin: 8px auto 32px;
   pointer-events: none;
+  background: #000;
+}
+.logo-galaxy-static,
+.logo-galaxy-lock {
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
 }
 .logo-galaxy-static {
-  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
   opacity: var(--logo-resolved, 0);
 }
+.logo-galaxy-lock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--logo-size, 280px);
+  height: var(--logo-size, 280px);
+  transform: translate3d(var(--logo-x, 0px), var(--logo-y, 0px), 0);
+  opacity: var(--logo-resolved, 0);
+  background: #000;
+}
 .experience[data-horizontal="true"] .logo-galaxy-dock {
+  display: none;
+}
+.experience[data-horizontal="false"] .logo-galaxy-lock {
   display: none;
 }
 .experience[data-horizontal="true"] {
@@ -382,10 +403,11 @@ button:focus-visible {
   margin-bottom: 40px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .logo-galaxy {
+  .logo-galaxy canvas {
     display: none;
   }
-  .logo-galaxy-static {
+  .logo-galaxy-static,
+  .logo-galaxy-lock {
     opacity: 1;
   }
   .experience[data-horizontal="true"] .logo-galaxy-dock {
@@ -416,7 +438,40 @@ button:focus-visible {
   letter-spacing: -0.065em;
 }
 .editorial-title span {
-  color: #de4625;
+  color: #ff643d;
+}
+.experience .editorial-title {
+  color: #f6f6f1;
+}
+.experience .scene-label {
+  color: #9a9a92;
+  border-bottom-color: rgb(255 255 255 / 14%);
+}
+.experience .home-bottom p,
+.experience .contact-bottom p,
+.experience .studio-copy,
+.experience .section-intro,
+.experience .service-description p,
+.experience .service-description small,
+.experience .studio-photo figcaption {
+  color: #b7b7ae;
+}
+.experience .text-cta {
+  color: #f3f3ed;
+}
+.experience .service-row,
+.experience .service-row:last-child {
+  border-color: rgb(255 255 255 / 16%);
+}
+.experience .service-number {
+  color: #8d8d85;
+}
+.experience .contact-email,
+.experience .contact-socials a {
+  color: #e8e8e2;
+}
+.experience .chapter-bar {
+  color: #111;
 }
 .home-bottom,
 .contact-bottom {
@@ -709,6 +764,9 @@ button:focus-visible {
   text-decoration: underline;
 }
 .site-footer {
+  position: relative;
+  z-index: 20;
+  background: var(--background);
   padding: 45px 5% 76px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

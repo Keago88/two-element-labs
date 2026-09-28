@@ -1,18 +1,4 @@
-type Kind = 0 | 1 | 2 | 3; // field, stroke, ambient, accent
-
-type Sample = { u: number; v: number; lum: number; kind: Kind };
-
-type Particle = {
-  u: number;
-  v: number;
-  lum: number;
-  kind: Kind;
-  theta: number;
-  radius: number;
-  delay: number;
-  z: number;
-  size: number;
-};
+type Sample = { u: number; v: number; lum: number; kind: 0 | 1 };
 
 export type LogoGalaxy = {
   draw: (journey: number, horizontal: boolean) => void;
@@ -24,6 +10,7 @@ export type LogoGalaxy = {
 
 const MARK_SRC = "/logo-mark.png";
 const SAMPLE = 144;
+const FLOATS = 16;
 const TRI = {
   ax: 0.498,
   ay: 0.13,
@@ -32,6 +19,160 @@ const TRI = {
   cx: 0.899,
   cy: 0.863,
 };
+
+const NEBULA_VERT = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}
+`;
+
+const NEBULA_FRAG = `
+precision mediump float;
+varying vec2 v_uv;
+uniform vec2 u_res;
+uniform float u_time;
+uniform float u_assemble;
+uniform vec2 u_center;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+    f.y
+  );
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * noise(p);
+    p = p * 2.03 + vec2(0.7, 1.1);
+    a *= 0.55;
+  }
+  return v;
+}
+
+void main() {
+  vec2 p = (v_uv - u_center) * vec2(u_res.x / u_res.y, 1.0);
+  float t = u_time * 0.018;
+  float n = fbm(p * 2.4 + vec2(t * 0.15, -t * 0.08));
+  float n2 = fbm(p * 1.1 - vec2(t * 0.05, t * 0.07));
+  float r = length(p);
+  float core = exp(-r * r * 2.6);
+  float arm = exp(-abs(n2 - 0.52) * 6.0) * exp(-r * 1.15);
+  vec3 space = vec3(0.01, 0.014, 0.03);
+  vec3 orange = vec3(1.0, 0.39, 0.24);
+  vec3 amber = vec3(1.0, 0.78, 0.48);
+  vec3 teal = vec3(0.35, 0.52, 0.78);
+  vec3 nebula =
+    orange * (0.16 * core + 0.07 * arm * n) +
+    amber * (0.14 * core * n2) +
+    teal * (0.08 * (1.0 - core) * n * (1.0 - u_assemble * 0.35));
+  float veil = 0.18 + 0.22 * n;
+  vec3 color = space + nebula * veil * (1.0 - u_assemble * 0.28);
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+const STAR_VERT = `
+attribute vec4 a0;
+attribute vec4 a1;
+attribute vec4 a2;
+attribute vec4 a3;
+uniform vec2 u_res;
+uniform float u_time;
+uniform float u_assemble;
+uniform float u_spin;
+uniform float u_dpr;
+uniform float u_horizontal;
+uniform vec4 u_logo;
+uniform vec2 u_center;
+uniform float u_maxSize;
+varying vec3 v_color;
+varying float v_alpha;
+
+void main() {
+  float theta = a0.x;
+  float radius = a0.y;
+  float depth = a0.z;
+  float size = a0.w;
+  vec2 logoUV = a1.xy;
+  float bright = a1.z;
+  float delay = a1.w;
+  vec3 color = a2.xyz;
+  float twinkle = a2.w;
+  float layer = a3.x;
+  float pull = a3.y;
+
+  float t = clamp((u_assemble - delay) / max(0.18, 1.0 - delay), 0.0, 1.0);
+  t = t * t * (3.0 - 2.0 * t);
+  float layerPull = pull * t;
+  float farKeep = 1.0 - smoothstep(0.7, 1.0, layer);
+  float spin = u_spin * mix(0.15, 1.0, layer) * (1.0 - t * 0.85);
+  float swirl = (1.0 - t) * (0.35 + depth * 0.4);
+  float ang = theta + spin + swirl;
+  float maxR = length(u_res) * 0.5;
+  vec2 origin = u_center * u_res;
+  vec2 spiral = origin + vec2(cos(ang), sin(ang) * 0.86) * radius * maxR * mix(0.92, 1.18, depth);
+  vec2 far = vec2(a3.z, a3.w) * u_res;
+  far += vec2(
+    sin(u_time * 0.017 + theta) * 6.0,
+    cos(u_time * 0.013 + radius * 8.0) * 4.0
+  ) * (1.0 - t * 0.3);
+  vec2 field = mix(far, spiral, clamp(layer, 0.0, 1.0));
+  vec2 logoPos = u_logo.xy + logoUV * u_logo.z;
+  vec2 pos = mix(field, logoPos, layerPull);
+  pos = mix(pos, field, farKeep * 0.92);
+
+  vec2 clip = (pos / u_res) * 2.0 - 1.0;
+  clip.y *= -1.0;
+  gl_Position = vec4(clip, 0.0, 1.0);
+
+  float tw = 0.72 + 0.28 * sin(u_time * (1.1 + twinkle * 1.8) + twinkle * 12.0);
+  float perspective = mix(0.7, 1.35, depth);
+  float point = size * perspective * tw * u_dpr;
+  point *= mix(1.0, 1.25, layer);
+  point *= mix(1.0, 0.55, t * pull);
+  gl_PointSize = clamp(point, 1.0, u_maxSize);
+
+  float contentDim = 1.0;
+  if (u_horizontal > 0.5) {
+    float k = smoothstep(0.34, 0.62, pos.x / u_res.x);
+    contentDim = mix(0.28, 1.0, k);
+  } else {
+    contentDim = mix(0.42, 1.0, t);
+  }
+
+  float fadeFar = mix(1.0, 0.55, t * (1.0 - pull));
+  v_color = color;
+  v_alpha = bright * tw * contentDim * fadeFar * mix(0.55, 1.0, layer);
+}
+`;
+
+const STAR_FRAG = `
+precision mediump float;
+varying vec3 v_color;
+varying float v_alpha;
+void main() {
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float d = dot(p, p);
+  if (d > 1.0) discard;
+  float glow = exp(-d * 2.6);
+  float core = exp(-d * 16.0);
+  vec3 col = v_color * (0.5 * glow + 1.35 * core);
+  float alpha = v_alpha * glow;
+  gl_FragColor = vec4(col * alpha, alpha);
+}
+`;
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
@@ -87,11 +228,11 @@ function inLogoTriangle(u: number, v: number) {
 function assembleT(journey: number) {
   const t = clamp(journey);
   const mapped =
-    t < 0.2
-      ? (t / 0.2) * 0.06
-      : t < 0.66
-        ? 0.06 + ((t - 0.2) / 0.46) * 0.4
-        : 0.46 + ((t - 0.66) / 0.34) * 0.54;
+    t < 0.18
+      ? (t / 0.18) * 0.04
+      : t < 0.62
+        ? 0.04 + ((t - 0.18) / 0.44) * 0.36
+        : 0.4 + ((t - 0.62) / 0.38) * 0.6;
   return smoothstep(mapped);
 }
 
@@ -107,16 +248,11 @@ function sampleOfficialMark(image: HTMLImageElement): Sample[] {
   for (let y = 0; y < SAMPLE; y += 1) {
     for (let x = 0; x < SAMPLE; x += 1) {
       const i = (y * SAMPLE + x) * 4;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const lum = (r + g + b) / 3 / 255;
+      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3 / 255;
       const u = x / (SAMPLE - 1);
       const v = y / (SAMPLE - 1);
-      const inside = inLogoTriangle(u, v);
-      if (lum > 0.16) {
-        samples.push({ u, v, lum, kind: 1 });
-      } else if (inside && x % 2 === 0 && y % 2 === 0) {
+      if (lum > 0.16) samples.push({ u, v, lum, kind: 1 });
+      else if (inLogoTriangle(u, v) && x % 2 === 0 && y % 2 === 0) {
         samples.push({ u, v, lum, kind: 0 });
       }
     }
@@ -124,78 +260,232 @@ function sampleOfficialMark(image: HTMLImageElement): Sample[] {
   return samples;
 }
 
-function particleBudget(width: number, dpr: number) {
+function budgets(width: number, dpr: number) {
   const mobile = width < 951;
   const low = dpr <= 1.25 || (mobile && dpr < 2);
-  if (mobile) return low ? 280 : 420;
-  return low ? 860 : 1320;
+  if (mobile) {
+    return low
+      ? { far: 700, spiral: 900, near: 160, logo: 420 }
+      : { far: 1000, spiral: 1300, near: 220, logo: 560 };
+  }
+  return low
+    ? { far: 2600, spiral: 3200, near: 480, logo: 1200 }
+    : { far: 3800, spiral: 5200, near: 720, logo: 1800 };
 }
 
-function buildParticles(
+function starColor(rand: () => number, accent: boolean): [number, number, number] {
+  if (accent) return [1, 0.42 + rand() * 0.16, 0.24];
+  const roll = rand();
+  if (roll < 0.12) return [0.7, 0.84, 1];
+  if (roll < 0.28) return [1, 0.78, 0.52];
+  const w = 0.86 + rand() * 0.14;
+  return [w, w, 0.94 + rand() * 0.06];
+}
+
+function writeStar(
+  data: Float32Array,
+  i: number,
+  star: {
+    theta: number;
+    radius: number;
+    z: number;
+    size: number;
+    u: number;
+    v: number;
+    bright: number;
+    delay: number;
+    color: [number, number, number];
+    twinkle: number;
+    layer: number;
+    pull: number;
+    farX: number;
+    farY: number;
+  },
+) {
+  const o = i * FLOATS;
+  data[o] = star.theta;
+  data[o + 1] = star.radius;
+  data[o + 2] = star.z;
+  data[o + 3] = star.size;
+  data[o + 4] = star.u;
+  data[o + 5] = star.v;
+  data[o + 6] = star.bright;
+  data[o + 7] = star.delay;
+  data[o + 8] = star.color[0];
+  data[o + 9] = star.color[1];
+  data[o + 10] = star.color[2];
+  data[o + 11] = star.twinkle;
+  data[o + 12] = star.layer;
+  data[o + 13] = star.pull;
+  data[o + 14] = star.farX;
+  data[o + 15] = star.farY;
+}
+
+function buildField(
   samples: Sample[],
-  count: number,
+  width: number,
+  dpr: number,
   seed: number,
-): Particle[] {
+) {
   const rand = mulberry32(seed);
-  const stroke = samples.filter((s) => s.kind === 1);
-  const field = samples.filter((s) => s.kind === 0);
-  const logoCount = Math.round(count * 0.74);
-  const ambientCount = count - logoCount;
-  const particles: Particle[] = [];
-  const take = (pool: Sample[], n: number) => {
-    if (!pool.length || n <= 0) return;
-    const stride = Math.max(1, pool.length / n);
-    for (let i = 0; i < n; i += 1) {
-      const sample = pool[Math.min(pool.length - 1, Math.floor(i * stride))];
-      const lx = sample.u - 0.5;
-      const ly = sample.v - 0.52;
-      const ang = Math.atan2(ly, lx);
-      const rad = Math.hypot(lx, ly);
-      const arm = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 3) % 3;
-      const along = clamp(rad / 0.48);
-      const theta =
-        along * 5.15 + arm * 2.094395 + (rand() - 0.5) * (0.08 + along * 0.12);
-      const radius = 0.1 * Math.exp(2.05 * along) + (rand() - 0.5) * 0.04;
-      particles.push({
-        u: sample.u,
-        v: sample.v,
-        lum: sample.lum,
-        kind: sample.kind,
-        theta,
-        radius,
-        delay: along * 0.14 + rand() * 0.07,
-        z: 0.5 + rand() * 1,
-        size:
-          sample.kind === 1
-            ? 1.7 + sample.lum * 1.8 + rand() * 0.6
-            : 1.3 + rand() * 0.7,
-      });
-    }
+  const { far, spiral, near, logo } = budgets(width, dpr);
+  const count = far + spiral + near + (samples.length ? logo : 0);
+  const data = new Float32Array(count * FLOATS);
+  let i = 0;
+  const push = (
+    layer: number,
+    pull: number,
+    extras: Partial<Parameters<typeof writeStar>[2]> & {
+      theta: number;
+      radius: number;
+    },
+  ) => {
+    writeStar(data, i, {
+      z: extras.z ?? rand(),
+      size: extras.size ?? 2,
+      u: extras.u ?? 0.5,
+      v: extras.v ?? 0.5,
+      bright: extras.bright ?? 0.6,
+      delay: extras.delay ?? 0,
+      color: extras.color ?? starColor(rand, false),
+      twinkle: extras.twinkle ?? rand(),
+      farX: extras.farX ?? rand(),
+      farY: extras.farY ?? rand(),
+      ...extras,
+      layer,
+      pull,
+    });
+    i += 1;
   };
-  const strokeN = Math.round(logoCount * 0.74);
-  take(stroke, strokeN);
-  take(field, logoCount - strokeN);
-  for (let i = 0; i < ambientCount; i += 1) {
-    const arm = i % 3;
-    const along = rand() ** 0.78;
-    const theta = along * 5.15 + arm * 2.094395 + (rand() - 0.5) * 0.16;
-    const radius = 0.1 * Math.exp(2.05 * along) + (rand() - 0.5) * 0.05;
-    const accent = rand() < 0.12;
-    particles.push({
-      u: 0.5 + (rand() - 0.5) * 0.18,
-      v: 0.52 + (rand() - 0.5) * 0.18,
-      lum: accent ? 0.7 : 0.2,
-      kind: accent ? 3 : 2,
-      theta,
-      radius: Math.min(1.18, radius + (rand() < 0.18 ? rand() * 0.28 : 0)),
-      delay: 0.04 + rand() * 0.18,
-      z: 0.4 + rand() * 1.2,
-      size: accent ? 2 + rand() * 1.4 : 1.2 + rand() * 1.1,
+
+  for (let n = 0; n < far; n += 1) {
+    push(0, 0, {
+      theta: rand() * Math.PI * 2,
+      radius: 0.2 + rand() * 0.95,
+      z: rand() * 0.45,
+      size: 1.1 + rand() * 2.2,
+      bright: 0.16 + rand() * 0.35,
+      delay: 0.4 + rand() * 0.4,
+      farX: rand(),
+      farY: rand(),
+      color: starColor(rand, rand() < 0.04),
     });
   }
-  const order: Record<Kind, number> = { 2: 0, 0: 1, 3: 2, 1: 3 };
-  particles.sort((a, b) => order[a.kind] - order[b.kind] || a.z - b.z);
-  return particles;
+
+  for (let n = 0; n < spiral; n += 1) {
+    const arm = n % 3;
+    const along = rand() ** 0.62;
+    const theta =
+      along * 5.6 + arm * 2.094395 + (rand() - 0.5) * (0.05 + along * 0.14);
+    const radius = 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.03;
+    const core = along < 0.16;
+    push(1, samples.length ? 0.22 + rand() * 0.2 : 0, {
+      theta,
+      radius,
+      z: 0.35 + rand() * 0.5,
+      size: core ? 6 + rand() * 6 : 1.8 + rand() * 3.4,
+      bright: core ? 1 : 0.35 + rand() * 0.5,
+      delay: along * 0.18 + rand() * 0.08,
+      u: 0.5 + (rand() - 0.5) * 0.3,
+      v: 0.52 + (rand() - 0.5) * 0.3,
+      color: starColor(rand, rand() < 0.1),
+      farX: 0.5 + Math.cos(theta) * radius * 0.5,
+      farY: 0.48 + Math.sin(theta) * radius * 0.42,
+    });
+  }
+
+  for (let n = 0; n < near; n += 1) {
+    const arm = n % 3;
+    const along = rand() ** 0.7;
+    push(2, 0.12, {
+      theta: along * 5.2 + arm * 2.094395 + (rand() - 0.5) * 0.2,
+      radius: 0.12 + along * 0.85,
+      z: 0.7 + rand() * 0.3,
+      size: 3.2 + rand() * 5.5,
+      bright: 0.45 + rand() * 0.5,
+      delay: 0.08 + rand() * 0.2,
+      color: starColor(rand, rand() < 0.16),
+      farX: rand(),
+      farY: rand(),
+    });
+  }
+
+  if (samples.length) {
+    const stroke = samples.filter((s) => s.kind === 1);
+    const field = samples.filter((s) => s.kind === 0);
+    const strokeN = Math.round(logo * 0.78);
+    const take = (pool: Sample[], n: number) => {
+      if (!pool.length) return;
+      const stride = Math.max(1, pool.length / n);
+      for (let s = 0; s < n; s += 1) {
+        const sample = pool[Math.min(pool.length - 1, Math.floor(s * stride))];
+        const lx = sample.u - 0.5;
+        const ly = sample.v - 0.52;
+        const ang = Math.atan2(ly, lx);
+        const rad = Math.hypot(lx, ly);
+        const arm = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 3) % 3;
+        const along = clamp(rad / 0.48);
+        push(1, 1, {
+          theta: along * 5.6 + arm * 2.094395 + (rand() - 0.5) * 0.1,
+          radius: 0.028 * Math.exp(2.15 * along) + (rand() - 0.5) * 0.02,
+          z: 0.45 + rand() * 0.4,
+          size: sample.kind === 1 ? 2.2 + sample.lum * 2.4 : 1.6,
+          bright: 0.55 + sample.lum * 0.45,
+          delay: along * 0.12 + rand() * 0.06,
+          u: sample.u,
+          v: sample.v,
+          color:
+            sample.kind === 1
+              ? ([0.96, 0.97, 1] as [number, number, number])
+              : ([0.08, 0.09, 0.12] as [number, number, number]),
+          farX: 0.5 + Math.cos(ang) * 0.4,
+          farY: 0.48 + Math.sin(ang) * 0.34,
+        });
+      }
+    };
+    take(stroke, strokeN);
+    take(field, logo - strokeN);
+  }
+
+  return { data, count: i };
+}
+
+function compile(
+  gl: WebGLRenderingContext,
+  type: number,
+  source: string,
+) {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function program(
+  gl: WebGLRenderingContext,
+  vert: string,
+  frag: string,
+) {
+  const vs = compile(gl, gl.VERTEX_SHADER, vert);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, frag);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  if (!prog) return null;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    gl.deleteProgram(prog);
+    return null;
+  }
+  return prog;
 }
 
 function logoRect(
@@ -206,11 +496,10 @@ function logoRect(
   const box = canvas.getBoundingClientRect();
   if (!horizontal && dock) {
     const dockBox = dock.getBoundingClientRect();
-    const size = Math.max(64, dockBox.width);
     return {
       x: dockBox.left - box.left,
       y: dockBox.top - box.top,
-      size,
+      size: Math.max(64, dockBox.width),
     };
   }
   const width = box.width;
@@ -234,10 +523,22 @@ export function createLogoGalaxy({
   dock: HTMLElement | null;
   host: HTMLElement;
 }): LogoGalaxy {
-  const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
+  const gl = (canvas.getContext("webgl", {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: true,
+    powerPreference: "high-performance",
+  }) ||
+    canvas.getContext("experimental-webgl", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+    })) as WebGLRenderingContext | null;
+
   let samples: Sample[] = [];
-  let particles: Particle[] = [];
-  let mark: HTMLImageElement | null = null;
   let reduced = false;
   let hidden = typeof document !== "undefined" ? document.hidden : false;
   let offscreen = false;
@@ -247,19 +548,61 @@ export function createLogoGalaxy({
   let dpr = 1;
   let lastJourney = 0;
   let lastHorizontal = false;
+  let starCount = 0;
+  let raf = 0;
+  const start = performance.now();
+
+  const nebulaProg = gl ? program(gl, NEBULA_VERT, NEBULA_FRAG) : null;
+  const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
+  const quad = gl?.createBuffer() ?? null;
+  const stars = gl?.createBuffer() ?? null;
+  const quadData = new Float32Array([-1, -1, 3, -1, -1, 3]);
+
+  if (gl && quad) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, quadData, gl.STATIC_DRAW);
+  }
+
+  const nebulaLoc = nebulaProg && gl
+    ? {
+        pos: gl.getAttribLocation(nebulaProg, "a_pos"),
+        res: gl.getUniformLocation(nebulaProg, "u_res"),
+        time: gl.getUniformLocation(nebulaProg, "u_time"),
+        assemble: gl.getUniformLocation(nebulaProg, "u_assemble"),
+        center: gl.getUniformLocation(nebulaProg, "u_center"),
+      }
+    : null;
+
+  const starLoc = starProg && gl
+    ? {
+        a0: gl.getAttribLocation(starProg, "a0"),
+        a1: gl.getAttribLocation(starProg, "a1"),
+        a2: gl.getAttribLocation(starProg, "a2"),
+        a3: gl.getAttribLocation(starProg, "a3"),
+        res: gl.getUniformLocation(starProg, "u_res"),
+        time: gl.getUniformLocation(starProg, "u_time"),
+        assemble: gl.getUniformLocation(starProg, "u_assemble"),
+        spin: gl.getUniformLocation(starProg, "u_spin"),
+        dpr: gl.getUniformLocation(starProg, "u_dpr"),
+        horizontal: gl.getUniformLocation(starProg, "u_horizontal"),
+        logo: gl.getUniformLocation(starProg, "u_logo"),
+        center: gl.getUniformLocation(starProg, "u_center"),
+        maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+      }
+    : null;
 
   const markImage = new Image();
   markImage.decoding = "async";
   markImage.alt = "";
 
-  const isPaused = () => hidden || offscreen;
+  const isPaused = () => hidden || offscreen || reduced || !gl;
 
-  const rebuild = () => {
-    if (!cssW) return;
-    const count = particleBudget(cssW, dpr);
-    particles = samples.length
-      ? buildParticles(samples, count, 7701 + Math.round(cssW))
-      : [];
+  const uploadStars = () => {
+    if (!gl || !stars || !cssW) return;
+    const field = buildField(samples, cssW, dpr, 90210 + Math.round(cssW));
+    starCount = field.count;
+    gl.bindBuffer(gl.ARRAY_BUFFER, stars);
+    gl.bufferData(gl.ARRAY_BUFFER, field.data, gl.STATIC_DRAW);
   };
 
   const fit = () => {
@@ -278,89 +621,90 @@ export function createLogoGalaxy({
     canvas.height = Math.round(h * dpr);
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
-    rebuild();
+    gl?.viewport(0, 0, canvas.width, canvas.height);
+    uploadStars();
   };
 
-  const paint = (journey: number, horizontal: boolean) => {
-    if (!ctx || destroyed || isPaused() || reduced) return;
-    lastJourney = journey;
-    lastHorizontal = horizontal;
+  const render = (now: number) => {
+    if (!gl || destroyed || reduced || hidden || offscreen) return;
+    if (!nebulaProg || !starProg || !nebulaLoc || !starLoc || !quad || !stars) {
+      return;
+    }
     fit();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    if (!particles.length) return;
-
-    const assemble = assembleT(journey);
-    const logo = logoRect(canvas, dock, horizontal);
-    const maxR = Math.hypot(cssW, cssH) * 0.5;
-    const cx = cssW * (horizontal ? 0.66 : 0.52);
-    const cy = cssH * 0.48;
-    const markAlpha = smoothstep((assemble - 0.82) / 0.16);
-    const particleKeep = 1 - smoothstep((assemble - 0.9) / 0.1);
+    const time = (now - start) / 1000;
+    const assemble = assembleT(lastJourney);
+    const logo = logoRect(canvas, dock, lastHorizontal);
+    const markAlpha = smoothstep((assemble - 0.8) / 0.18);
     host.style.setProperty("--logo-resolved", markAlpha.toFixed(3));
+    host.style.setProperty("--logo-x", `${Math.round(logo.x)}px`);
+    host.style.setProperty("--logo-y", `${Math.round(logo.y)}px`);
+    host.style.setProperty("--logo-size", `${Math.round(logo.size)}px`);
+    const cx = lastHorizontal ? 0.64 : 0.5;
+    const cy = 0.48;
 
-    for (let i = 0; i < particles.length; i += 1) {
-      const p = particles[i];
-      const t = smoothstep((assemble - p.delay) / Math.max(0.18, 1 - p.delay));
-      const swirl = (1 - t) * (0.55 + p.z * 0.35);
-      const scatterX =
-        cx + Math.cos(p.theta + swirl) * p.radius * maxR * (0.72 + p.z * 0.18);
-      const scatterY =
-        cy +
-        Math.sin(p.theta + swirl) * p.radius * maxR * (0.58 + p.z * 0.12);
-      const tx = logo.x + p.u * logo.size;
-      const ty = logo.y + p.v * logo.size;
-      const x = scatterX + (tx - scatterX) * t;
-      const y = scatterY + (ty - scatterY) * t;
-      const ambientFade = p.kind >= 2 ? 1 - smoothstep((t - 0.35) / 0.55) : 1;
-      if (ambientFade <= 0.02) continue;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.BLEND);
+    gl.useProgram(nebulaProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(nebulaLoc.pos);
+    gl.vertexAttribPointer(nebulaLoc.pos, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(nebulaLoc.res, cssW, cssH);
+    gl.uniform1f(nebulaLoc.time, time);
+    gl.uniform1f(nebulaLoc.assemble, assemble);
+    gl.uniform2f(nebulaLoc.center, cx, 1 - cy);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      let alpha: number;
-      let fill: string;
-      if (p.kind === 1) {
-        const light = 22 + (240 - 22) * markAlpha;
-        alpha = (0.32 + t * 0.5) * particleKeep;
-        fill = `rgb(${light},${light},${Math.max(18, light - 8)})`;
-      } else if (p.kind === 3) {
-        alpha = (0.28 + t * 0.18) * ambientFade * particleKeep;
-        fill = "#ff643d";
-      } else if (p.kind === 2) {
-        alpha = (0.2 + (1 - t) * 0.18) * ambientFade * particleKeep;
-        fill = "#1a1a17";
-      } else {
-        alpha = (0.28 + t * 0.42) * particleKeep;
-        fill = "#111";
-      }
+    if (!starCount) return;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(starProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stars);
+    const stride = FLOATS * 4;
+    const bind = (loc: number, offset: number) => {
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, stride, offset * 4);
+    };
+    bind(starLoc.a0, 0);
+    bind(starLoc.a1, 4);
+    bind(starLoc.a2, 8);
+    bind(starLoc.a3, 12);
+    gl.uniform2f(starLoc.res, cssW, cssH);
+    gl.uniform1f(starLoc.time, time);
+    gl.uniform1f(starLoc.assemble, assemble);
+    gl.uniform1f(starLoc.spin, time * 0.045);
+    gl.uniform1f(starLoc.dpr, dpr);
+    gl.uniform1f(starLoc.horizontal, lastHorizontal ? 1 : 0);
+    gl.uniform4f(starLoc.logo, logo.x, logo.y, logo.size, 1);
+    gl.uniform2f(starLoc.center, cx, cy);
+    const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as
+      | Float32Array
+      | number[];
+    gl.uniform1f(starLoc.maxSize, Math.min(96, range?.[1] || 64));
+    gl.drawArrays(gl.POINTS, 0, starCount);
+  };
 
-      if (horizontal && x < cssW * 0.54) {
-        const k = clamp(x / (cssW * 0.54));
-        alpha *= 0.28 + k * 0.55;
-      } else if (!horizontal) {
-        alpha *= 0.42 + t * 0.58;
-      }
+  const tick = (now: number) => {
+    raf = 0;
+    if (destroyed || isPaused()) return;
+    render(now);
+    raf = requestAnimationFrame(tick);
+  };
 
-      if (alpha < 0.03) continue;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = fill;
-      const size = p.size * (1.15 - t * 0.25) * (p.z > 1 ? 1.15 : 1);
-      const r = Math.max(0.6, size * 0.55);
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  const play = () => {
+    if (destroyed || isPaused() || raf) return;
+    raf = requestAnimationFrame(tick);
+  };
 
-    ctx.globalAlpha = 1;
-    if (horizontal && mark && markAlpha > 0.02 && mark.naturalWidth) {
-      ctx.globalAlpha = markAlpha;
-      ctx.drawImage(mark, logo.x, logo.y, logo.size, logo.size);
-      ctx.globalAlpha = 1;
-    }
+  const stop = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
   };
 
   const observer = new IntersectionObserver(
     ([entry]) => {
       offscreen = !entry.isIntersecting;
-      if (!isPaused() && !reduced) paint(lastJourney, lastHorizontal);
+      if (isPaused()) stop();
+      else play();
     },
     { threshold: 0 },
   );
@@ -368,51 +712,65 @@ export function createLogoGalaxy({
 
   const onVisibility = () => {
     hidden = document.hidden;
-    if (!isPaused() && !reduced) paint(lastJourney, lastHorizontal);
+    if (isPaused()) stop();
+    else play();
   };
   document.addEventListener("visibilitychange", onVisibility);
 
   markImage.addEventListener("load", () => {
     if (destroyed) return;
-    mark = markImage;
     samples = sampleOfficialMark(markImage);
-    rebuild();
-    if (!isPaused() && !reduced) paint(lastJourney, lastHorizontal);
+    uploadStars();
   });
   markImage.src = MARK_SRC;
   if (markImage.complete && markImage.naturalWidth) {
-    mark = markImage;
     samples = sampleOfficialMark(markImage);
-    rebuild();
   }
 
   fit();
+  play();
 
   return {
-    draw: paint,
+    draw(journey, horizontal) {
+      lastJourney = journey;
+      lastHorizontal = horizontal;
+      if (!raf && !isPaused()) play();
+    },
     setReduced(next) {
       if (reduced === next) return;
       reduced = next;
-      if (reduced && ctx) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (reduced) {
+        stop();
         host.style.setProperty("--logo-resolved", "1");
+      } else {
+        play();
       }
     },
     setPaused(next) {
       offscreen = next;
+      if (isPaused()) stop();
+      else play();
     },
     resize() {
+      cssW = 0;
       fit();
     },
     destroy() {
       destroyed = true;
+      stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       markImage.src = "";
-      particles = [];
-      samples = [];
+      if (gl) {
+        if (stars) gl.deleteBuffer(stars);
+        if (quad) gl.deleteBuffer(quad);
+        if (nebulaProg) gl.deleteProgram(nebulaProg);
+        if (starProg) gl.deleteProgram(starProg);
+      }
       host.style.removeProperty("--logo-resolved");
+      host.style.removeProperty("--logo-x");
+      host.style.removeProperty("--logo-y");
+      host.style.removeProperty("--logo-size");
     },
   };
 }

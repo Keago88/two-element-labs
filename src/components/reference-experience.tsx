@@ -259,6 +259,15 @@ export function ReferenceExperience({
       <div ref={host} className="experience" data-horizontal={horizontal}>
         <div className="logo-galaxy" aria-hidden="true">
           <canvas ref={galaxyCanvas} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="logo-galaxy-lock"
+            src="/logo-mark.png"
+            alt=""
+            width={1192}
+            height={1192}
+            decoding="async"
+          />
         </div>
         <div className="experience-viewport">
           <div className="scene-window">
