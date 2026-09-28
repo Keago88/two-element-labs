@@ -43,9 +43,13 @@ function rateLimited(key: string) {
   return current.count > MAX_PER_WINDOW;
 }
 
-function googleFormAccepted(response: Response) {
+function googleFormAccepted(response: Response, body: string) {
   if (response.ok) return true;
-  return [301, 302, 303, 307, 308].includes(response.status);
+  if ([301, 302, 303, 307, 308].includes(response.status)) return true;
+  return (
+    response.status === 400 &&
+    body.includes("Your response has been recorded")
+  );
 }
 
 async function deliverToGoogleForm(payload: ContactPayload) {
@@ -62,14 +66,13 @@ async function deliverToGoogleForm(payload: ContactPayload) {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Referer: `https://docs.google.com/forms/d/e/${GOOGLE_FORM_ID}/viewform`,
     },
     body,
-    redirect: "manual",
+    redirect: "follow",
   });
+  const detail = await response.text().catch(() => "");
 
-  if (!googleFormAccepted(response)) {
-    const detail = await response.text().catch(() => "");
+  if (!googleFormAccepted(response, detail)) {
     throw new Error(
       `Google Form error (${response.status}): ${detail.slice(0, 300)}`,
     );
