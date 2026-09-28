@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
-import type { LogoGalaxy } from "@/lib/logo-galaxy";
+import { createLogoGalaxy, type LogoGalaxy } from "@/lib/logo-galaxy";
 import { mailtoHref, site } from "@/lib/site";
 
 const chapters = ["home", "about", "services", "contact"];
@@ -72,17 +72,14 @@ export function ReferenceExperience({
     let galaxy: LogoGalaxy | null = null;
     const startGalaxy = () => {
       if (galaxy || !galaxyCanvas.current) return;
-      void import("@/lib/logo-galaxy").then(({ createLogoGalaxy }) => {
-        if (galaxy || !galaxyCanvas.current) return;
-        galaxy = createLogoGalaxy({
-          canvas: galaxyCanvas.current,
-          dock: galaxyDock.current,
-          host: el,
-        });
-        galaxy.setReduced(reduced.matches);
-        galaxy.resize();
-        queue();
+      galaxy = createLogoGalaxy({
+        canvas: galaxyCanvas.current,
+        dock: galaxyDock.current,
+        host: el,
       });
+      galaxy.setReduced(reduced.matches);
+      galaxy.resize();
+      queue();
     };
     const clamp = (value: number) => Math.max(0, Math.min(1, value));
     const wide = window.matchMedia(
