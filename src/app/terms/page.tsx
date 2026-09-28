@@ -15,10 +15,6 @@ export default function TermsPage() {
       <h1 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
         Terms
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Stub terms for the public marketing site. Client work is scoped in a
-        separate brief or agreement.
-      </p>
       <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
         <p>
           This website describes Two Element Media. Sending a form is a request
