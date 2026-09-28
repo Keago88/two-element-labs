@@ -115,25 +115,24 @@ export function ReferenceExperience({
         panels.forEach((panel) => panel.style.setProperty("--drift", "0px"));
       }
       // One reversible timeline across the entire page, independent of chapter changes.
-      const end =
-        panels[3].getBoundingClientRect().top +
-        window.scrollY +
-        panels[3].offsetHeight -
-        window.innerHeight +
-        52;
       let journey = progress / 3;
       if (!isHorizontal) {
         const y = window.scrollY;
+        const gate = window.innerHeight * 0.42;
         const servicesStart = Math.max(
           0,
-          panels[2].getBoundingClientRect().top + y - window.innerHeight * 0.42,
+          panels[2].getBoundingClientRect().top + y - gate,
+        );
+        const contactStart = Math.max(
+          servicesStart + 1,
+          panels[3].getBoundingClientRect().top + y - gate,
         );
         journey =
           y <= servicesStart
             ? ((2 / 3) * y) / Math.max(1, servicesStart)
             : 2 / 3 +
               ((1 / 3) * (y - servicesStart)) /
-                Math.max(1, end - servicesStart);
+                Math.max(1, contactStart - servicesStart);
         journey = clamp(journey);
       }
       galaxy?.setReduced(reduced.matches);
