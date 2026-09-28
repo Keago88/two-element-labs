@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           error:
-            "Your brief could not be delivered. Please email hello@twoelement.media.",
+            "Your brief could not be delivered. Please try again in a moment.",
         },
         { status: 503 },
       );
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "We could not send that just now. Email hello@twoelement.media.",
+        error: "We could not send that just now. Please try again in a moment.",
       },
       { status: 502 },
     );
