@@ -35,6 +35,7 @@ uniform float u_maxSize;
 uniform vec3 u_trail[8];
 uniform float u_trailCount;
 uniform float u_hoverRadius;
+uniform float u_scatterDistance;
 uniform float u_pointerSpeed;
 varying vec3 v_color;
 varying float v_alpha;
@@ -86,7 +87,9 @@ void main() {
     interaction = max(interaction, influence);
   }
   float assemblyRestraint = mix(1.0, 0.48, t);
-  pos += displacement * u_hoverRadius * 0.3 * assemblyRestraint;
+  float scatterLength = length(displacement);
+  vec2 scatter = displacement * min(1.0, 1.5 / max(scatterLength, 0.001));
+  pos += scatter * u_scatterDistance * assemblyRestraint;
 
   vec2 clip = (pos / u_res) * 2.0 - 1.0;
   clip.y *= -1.0;
@@ -538,6 +541,7 @@ export function createLogoGalaxy({
           trail: gl.getUniformLocation(starProg, "u_trail[0]"),
           trailCount: gl.getUniformLocation(starProg, "u_trailCount"),
           hoverRadius: gl.getUniformLocation(starProg, "u_hoverRadius"),
+          scatterDistance: gl.getUniformLocation(starProg, "u_scatterDistance"),
           pointerSpeed: gl.getUniformLocation(starProg, "u_pointerSpeed"),
         }
       : null;
@@ -713,6 +717,7 @@ export function createLogoGalaxy({
     gl.uniform3fv(starLoc.trail, trailUniform);
     gl.uniform1f(starLoc.trailCount, trail.length);
     gl.uniform1f(starLoc.hoverRadius, cssW < 951 ? 14.8 : 23.6);
+    gl.uniform1f(starLoc.scatterDistance, cssW < 951 ? 22 : 35);
     gl.uniform1f(starLoc.pointerSpeed, pointerSpeed);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
