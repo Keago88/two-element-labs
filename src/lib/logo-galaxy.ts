@@ -68,7 +68,7 @@ void main() {
   vec2 pos = mix(field, logoPos, t * pull);
 
   // Cursor physics stay entirely on the GPU. Each trail sample is a screen-space
-  // attractor with a fading strength; once it expires, `pos` is the untouched
+  // attractor with a fading strength; once it expires, pos is the untouched
   // galaxy position again, which gives the interaction its spring-back motion.
   vec2 displacement = vec2(0.0);
   float interaction = 0.0;
