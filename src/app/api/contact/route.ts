@@ -11,6 +11,19 @@ const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 5;
 const hits = new Map<string, { count: number; resetAt: number }>();
 
+const GOOGLE_FORM_ID =
+  "1FAIpQLScYsdjZ5wAQb4NPN0dkuEqhvfWpK6HsdEl2eVGQjKOvP6JPGg";
+const GOOGLE_FORM_ACTION = `https://docs.google.com/forms/d/e/${GOOGLE_FORM_ID}/formResponse`;
+
+const GOOGLE_FORM_ENTRIES = {
+  name: "entry.126412132",
+  email: "entry.1464935313",
+  phone: "entry.302039224",
+  business: "entry.1209486730",
+  service: "entry.1720442056",
+  message: "entry.696549314",
+} as const;
+
 function clientKey(request: Request) {
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -30,48 +43,40 @@ function rateLimited(key: string) {
   return current.count > MAX_PER_WINDOW;
 }
 
-function formatEmail(payload: ContactPayload) {
-  return [
-    `Name: ${payload.name}`,
-    `Email: ${payload.email}`,
-    `Business: ${payload.business || "—"}`,
-    `Phone: ${payload.phone || "—"}`,
-    `Service: ${payload.service || "—"}`,
-    "",
-    payload.message,
-  ].join("\n");
+function googleFormAccepted(response: Response, body: string) {
+  if (response.ok) return true;
+  if ([301, 302, 303, 307, 308].includes(response.status)) return true;
+  return (
+    response.status === 400 &&
+    body.includes("Your response has been recorded")
+  );
 }
 
-async function deliverEmail(payload: ContactPayload) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.CONTACT_TO_EMAIL;
-  if (!apiKey || !to) return false;
-
-  const from =
-    process.env.CONTACT_FROM_EMAIL ??
-    "Two Element Media <onboarding@resend.dev>";
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      reply_to: payload.email,
-      subject: `Brief from ${payload.name}${payload.business ? ` · ${payload.business}` : ""}`,
-      text: formatEmail(payload),
-    }),
+async function deliverToGoogleForm(payload: ContactPayload) {
+  const body = new URLSearchParams({
+    [GOOGLE_FORM_ENTRIES.name]: payload.name,
+    [GOOGLE_FORM_ENTRIES.email]: payload.email,
+    [GOOGLE_FORM_ENTRIES.phone]: payload.phone,
+    [GOOGLE_FORM_ENTRIES.business]: payload.business,
+    [GOOGLE_FORM_ENTRIES.service]: payload.service,
+    [GOOGLE_FORM_ENTRIES.message]: payload.message,
   });
 
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Email provider error (${response.status}): ${detail}`);
-  }
+  const response = await fetch(GOOGLE_FORM_ACTION, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    redirect: "follow",
+  });
+  const detail = await response.text().catch(() => "");
 
-  return true;
+  if (!googleFormAccepted(response, detail)) {
+    throw new Error(
+      `Google Form error (${response.status}): ${detail.slice(0, 300)}`,
+    );
+  }
 }
 
 export async function POST(request: Request) {
@@ -122,23 +127,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const delivered = await deliverEmail(payload);
-    if (!delivered) {
-      if (wantsHtml)
-        return NextResponse.redirect(new URL("/?error=1#contact", origin), 303);
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Something went wrong. Please email twoemedia@gmail.com or WhatsApp +27 68 616 0222.",
-        },
-        { status: 503 },
-      );
-    }
+    await deliverToGoogleForm(payload);
     if (wantsHtml) {
       return NextResponse.redirect(new URL("/?sent=1#contact", origin), 303);
     }
-    return NextResponse.json({ ok: true, delivered });
+    return NextResponse.json({ ok: true, delivered: true });
   } catch (error) {
     console.error("[contact] Delivery failed", error);
     if (wantsHtml) {
