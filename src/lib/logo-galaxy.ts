@@ -32,6 +32,10 @@ uniform float u_horizontal;
 uniform vec4 u_logo;
 uniform vec2 u_center;
 uniform float u_maxSize;
+uniform vec3 u_trail[8];
+uniform float u_trailCount;
+uniform float u_hoverRadius;
+uniform float u_pointerSpeed;
 varying vec3 v_color;
 varying float v_alpha;
 
@@ -63,6 +67,27 @@ void main() {
   vec2 logoPos = u_logo.xy + logoUV * u_logo.z;
   vec2 pos = mix(field, logoPos, t * pull);
 
+  // Cursor physics stay entirely on the GPU. Each trail sample is a screen-space
+  // attractor with a fading strength; once it expires, `pos` is the untouched
+  // galaxy position again, which gives the interaction its spring-back motion.
+  vec2 displacement = vec2(0.0);
+  float interaction = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float enabled = step(float(i) + 0.5, u_trailCount);
+    vec2 delta = pos - u_trail[i].xy;
+    float distanceToPointer = length(delta);
+    float influence = (1.0 - smoothstep(0.0, u_hoverRadius, distanceToPointer));
+    influence *= u_trail[i].z * enabled;
+    vec2 away = delta / max(distanceToPointer, 0.001);
+    vec2 tangent = vec2(-away.y, away.x);
+    float pulse = 0.82 + 0.18 * sin(u_time * 4.0 + distanceToPointer * 0.045);
+    float swirlStrength = 0.34 + min(0.5, u_pointerSpeed * 0.012);
+    displacement += (away * 0.68 + tangent * swirlStrength * pulse) * influence;
+    interaction = max(interaction, influence);
+  }
+  float assemblyRestraint = mix(1.0, 0.48, t);
+  pos += displacement * u_hoverRadius * 0.3 * assemblyRestraint;
+
   vec2 clip = (pos / u_res) * 2.0 - 1.0;
   clip.y *= -1.0;
   gl_Position = vec4(clip, 0.0, 1.0);
@@ -83,7 +108,9 @@ void main() {
   }
 
   v_color = mix(color, vec3(0.96, 0.97, 1.0), t);
+  v_color = mix(v_color, v_color * vec3(1.15, 0.82, 0.68), interaction * 0.34);
   v_alpha = bright * tw * contentDim * mix(mix(0.55, 1.0, layer), 1.0, t);
+  v_alpha *= 1.0 + interaction * 0.32;
 }
 `;
 
@@ -475,6 +502,13 @@ export function createLogoGalaxy({
   let lastNow = start;
   let settleTarget = 0;
   let settleStarted = start;
+  let pointerX = 0;
+  let pointerY = 0;
+  let pointerSpeed = 0;
+  let pointerInside = false;
+  let lastPointerAt = start;
+  const trail: Array<{ x: number; y: number; strength: number }> = [];
+  const trailUniform = new Float32Array(8 * 3);
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -501,6 +535,10 @@ export function createLogoGalaxy({
           logo: gl.getUniformLocation(starProg, "u_logo"),
           center: gl.getUniformLocation(starProg, "u_center"),
           maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+          trail: gl.getUniformLocation(starProg, "u_trail[0]"),
+          trailCount: gl.getUniformLocation(starProg, "u_trailCount"),
+          hoverRadius: gl.getUniformLocation(starProg, "u_hoverRadius"),
+          pointerSpeed: gl.getUniformLocation(starProg, "u_pointerSpeed"),
         }
       : null;
 
@@ -582,6 +620,30 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
+    const decay = Math.exp(-dt / 430);
+    for (let i = trail.length - 1; i >= 0; i -= 1) {
+      trail[i].strength *= decay;
+      if (trail[i].strength < 0.025) trail.splice(i, 1);
+    }
+    if (pointerInside) {
+      const head = trail[0];
+      if (!head || Math.hypot(head.x - pointerX, head.y - pointerY) > 3) {
+        trail.unshift({ x: pointerX, y: pointerY, strength: 1 });
+        if (trail.length > 8) trail.length = 8;
+      } else {
+        head.x = pointerX;
+        head.y = pointerY;
+        head.strength = 1;
+      }
+    }
+    trailUniform.fill(0);
+    trail.forEach((point, index) => {
+      const offset = index * 3;
+      trailUniform[offset] = point.x;
+      trailUniform[offset + 1] = point.y;
+      trailUniform[offset + 2] = point.strength;
+    });
+    pointerSpeed *= Math.exp(-dt / 110);
     if (target !== settleTarget) {
       settleTarget = target;
       settleStarted = now;
@@ -648,6 +710,10 @@ export function createLogoGalaxy({
     }
     gl.uniform1f(starLoc.time, time);
     gl.uniform1f(starLoc.spin, time * 0.045);
+    gl.uniform3fv(starLoc.trail, trailUniform);
+    gl.uniform1f(starLoc.trailCount, trail.length);
+    gl.uniform1f(starLoc.hoverRadius, cssW < 951 ? 74 : 118);
+    gl.uniform1f(starLoc.pointerSpeed, pointerSpeed);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
@@ -684,6 +750,34 @@ export function createLogoGalaxy({
     else play();
   };
   document.addEventListener("visibilitychange", onVisibility);
+
+  const onPointerMove = (event: PointerEvent) => {
+    const box = canvasBox ?? canvas.getBoundingClientRect();
+    const x = event.clientX - box.left;
+    const y = event.clientY - box.top;
+    const inside = x >= 0 && x <= box.width && y >= 0 && y <= box.height;
+    if (!inside) {
+      pointerInside = false;
+      return;
+    }
+    const now = performance.now();
+    const elapsed = Math.max(8, now - lastPointerAt);
+    const distance = pointerInside ? Math.hypot(x - pointerX, y - pointerY) : 0;
+    pointerSpeed = Math.min(48, (distance / elapsed) * 16.67);
+    pointerX = x;
+    pointerY = y;
+    pointerInside = true;
+    lastPointerAt = now;
+    play();
+  };
+  const onPointerLeave = () => {
+    pointerInside = false;
+  };
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  document.documentElement.addEventListener("pointerleave", onPointerLeave, {
+    passive: true,
+  });
+  window.addEventListener("blur", onPointerLeave);
 
   const boot = requestAnimationFrame(() => {
     if (destroyed) return;
@@ -732,6 +826,9 @@ export function createLogoGalaxy({
       stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pointermove", onPointerMove);
+      document.documentElement.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("blur", onPointerLeave);
       if (gl) {
         if (stars) gl.deleteBuffer(stars);
         if (starProg) gl.deleteProgram(starProg);
