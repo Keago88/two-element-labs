@@ -19,6 +19,8 @@ export type LogoGalaxy = {
 const FLOATS = 16;
 const WAKE_CAPACITY = 32;
 const WAKE_SAMPLE_MS = 64;
+/** Per-frame pointer follow; smooths event-rate steps, not the 4× envelope. */
+const WAKE_POINTER_SMOOTH_MS = 32;
 /** Production attack τ is 0.075s; 4× slower drift-out. */
 const WAKE_ATTACK_S = 0.3;
 /** Production decay τ is 0.55s; 4× slower return. */
@@ -105,8 +107,15 @@ void main() {
     float influence = exp(-0.5 * dot(delta, delta) / (reach * reach));
 
     float age = max(0.0, u_wakeTiming[i].x - along * u_wakeTiming[i].y);
-    float response = (1.0 - exp(-age / ${WAKE_ATTACK_S.toFixed(3)})) * exp(-age / ${WAKE_DECAY_S.toFixed(3)});
-    response *= 1.0 - smoothstep(${WAKE_FADE_START_S.toFixed(1)}, ${WAKE_FADE_END_S.toFixed(1)}, age);
+    // C1 envelope: ease-out cubic drift (derivative max at age 0, so no delayed
+    // jump) then hermite return from the peak through fade-end. Production's
+    // (1-exp(-age/τa))*exp(-age/τd) peaks late when τ is stretched 4×.
+    // ${WAKE_DECAY_S}s decay and ${WAKE_FADE_START_S}s fade-start set the 4×
+    // production envelope; they are not a late clip that would sit then pop.
+    float riseT = clamp(age / ${WAKE_ATTACK_S.toFixed(3)}, 0.0, 1.0);
+    float rise = 1.0 - pow(1.0 - riseT, 3.0);
+    float fall = 1.0 - smoothstep(${WAKE_ATTACK_S.toFixed(3)}, ${WAKE_FADE_END_S.toFixed(1)}, age);
+    float response = rise * fall;
     float coverage = min(1.0, strokeLength / (reach * 1.5));
     float across = dot(delta, sideways) / reach;
     float curl = sin(age * 3.5 + twinkle * 2.0) * 0.32;
@@ -564,8 +573,10 @@ export function createLogoGalaxy({
   let settleStarted = start;
   let pointerTargetX = 0;
   let pointerTargetY = 0;
+  let pointerLiveX = 0;
+  let pointerLiveY = 0;
+  let pointerLiveReady = false;
   let pointerInside = false;
-  let lastPointerAt = start;
   const wake: WakeSegment[] = [];
   let activeWake: WakeSegment | null = null;
   const wakeUniform = new Float32Array(WAKE_CAPACITY * 4);
@@ -653,6 +664,7 @@ export function createLogoGalaxy({
     wake.length = 0;
     activeWake = null;
     pointerInside = false;
+    pointerLiveReady = false;
     uploadStars();
   };
 
@@ -693,9 +705,60 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
+    if (pointerInside && !isPaused()) {
+      const prevX = pointerLiveX;
+      const prevY = pointerLiveY;
+      if (!pointerLiveReady) {
+        pointerLiveX = pointerTargetX;
+        pointerLiveY = pointerTargetY;
+        pointerLiveReady = true;
+      } else {
+        const followPointer = 1 - Math.exp(-dt / WAKE_POINTER_SMOOTH_MS);
+        pointerLiveX += (pointerTargetX - pointerLiveX) * followPointer;
+        pointerLiveY += (pointerTargetY - pointerLiveY) * followPointer;
+        const fromX = activeWake ? activeWake.toX : prevX;
+        const fromY = activeWake ? activeWake.toY : prevY;
+        const step = Math.hypot(pointerLiveX - fromX, pointerLiveY - fromY);
+        if (step > 0.12) {
+          if (!activeWake || now - activeWake.sampledAt >= WAKE_SAMPLE_MS) {
+            activeWake = {
+              fromX,
+              fromY,
+              toX: pointerLiveX,
+              toY: pointerLiveY,
+              sampledAt: now,
+              startedAt: now,
+              updatedAt: now,
+            };
+            wake.unshift(activeWake);
+            while (wake.length > WAKE_CAPACITY) {
+              const older = wake[wake.length - 1];
+              const keep = wake[wake.length - 2];
+              if (!keep || keep === activeWake) {
+                wake.pop();
+                break;
+              }
+              keep.toX = older.toX;
+              keep.toY = older.toY;
+              keep.updatedAt = Math.max(keep.updatedAt, older.updatedAt);
+              wake.pop();
+            }
+          } else {
+            activeWake.toX = pointerLiveX;
+            activeWake.toY = pointerLiveY;
+            activeWake.updatedAt = now;
+          }
+        }
+      }
+    } else {
+      pointerLiveReady = false;
+      activeWake = null;
+    }
     for (let i = wake.length - 1; i >= 0; i -= 1) {
       if (now - wake[i].updatedAt >= WAKE_LIFETIME_MS) wake.splice(i, 1);
     }
+    wakeUniform.fill(0);
+    wakeTiming.fill(0);
     wake.forEach((segment, index) => {
       const offset = index * 4;
       wakeUniform[offset] = segment.fromX;
@@ -802,6 +865,7 @@ export function createLogoGalaxy({
     wake.length = 0;
     activeWake = null;
     pointerInside = false;
+    pointerLiveReady = false;
   };
 
   const observer = new IntersectionObserver(
@@ -831,33 +895,9 @@ export function createLogoGalaxy({
       activeWake = null;
       return;
     }
-    const now = performance.now();
-    const distance = pointerInside ? Math.hypot(x - pointerTargetX, y - pointerTargetY) : 0;
-    if (distance > 0.12 && !isPaused()) {
-      // Time-based sampling retains the entire settling interval even during
-      // a fast sweep. Each segment covers the gaps between pointer events.
-      if (!activeWake || now - activeWake.sampledAt >= WAKE_SAMPLE_MS) {
-        activeWake = {
-          fromX: pointerTargetX,
-          fromY: pointerTargetY,
-          toX: x,
-          toY: y,
-          sampledAt: now,
-          startedAt: Math.max(lastPointerAt, now - 32),
-          updatedAt: now,
-        };
-        wake.unshift(activeWake);
-        if (wake.length > WAKE_CAPACITY) wake.length = WAKE_CAPACITY;
-      } else {
-        activeWake.toX = x;
-        activeWake.toY = y;
-        activeWake.updatedAt = now;
-      }
-    }
     pointerTargetX = x;
     pointerTargetY = y;
     pointerInside = true;
-    lastPointerAt = now;
     play();
   };
   const onPointerLeave = () => {
