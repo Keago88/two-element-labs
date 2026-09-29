@@ -17,6 +17,9 @@ export type LogoGalaxy = {
 };
 
 const FLOATS = 16;
+const TRAIL_CAPACITY = 12;
+const TRAIL_SPACING = 12;
+const TRAIL_LIFETIME_MS = 1150;
 
 const STAR_VERT = `
 attribute vec4 a0;
@@ -32,7 +35,7 @@ uniform float u_horizontal;
 uniform vec4 u_logo;
 uniform vec2 u_center;
 uniform float u_maxSize;
-uniform vec3 u_trail[5];
+uniform vec3 u_trail[12];
 uniform float u_trailCount;
 uniform float u_hoverRadius;
 uniform float u_scatterDistance;
@@ -68,11 +71,10 @@ void main() {
   vec2 logoPos = u_logo.xy + logoUV * u_logo.z;
   vec2 pos = mix(field, logoPos, t * pull);
 
-  // Cursor physics stay entirely on the GPU. Each trail sample is a screen-space
-  // attractor with a fading strength; once it expires, pos is the untouched
-  // galaxy position again, which gives the interaction its spring-back motion.
+  // Cursor physics stay on the GPU. Recent path samples gently disturb nearby
+  // stars; the original galaxy position remains untouched as the samples fade.
   vec2 displacement = vec2(0.0);
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 12; i++) {
     float enabled = step(float(i) + 0.5, u_trailCount);
     vec2 delta = pos - u_trail[i].xy;
     float distanceToPointer = length(delta);
@@ -504,15 +506,15 @@ export function createLogoGalaxy({
   let lastNow = start;
   let settleTarget = 0;
   let settleStarted = start;
-  let pointerX = 0;
-  let pointerY = 0;
   let pointerTargetX = 0;
   let pointerTargetY = 0;
+  let lastTrailSampleX = 0;
+  let lastTrailSampleY = 0;
   let pointerSpeed = 0;
   let pointerInside = false;
   let lastPointerAt = start;
-  const trail: Array<{ x: number; y: number; strength: number }> = [];
-  const trailUniform = new Float32Array(5 * 3);
+  const trail: Array<{ x: number; y: number; at: number }> = [];
+  const trailUniform = new Float32Array(TRAIL_CAPACITY * 3);
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -593,6 +595,8 @@ export function createLogoGalaxy({
     glReady = false;
     heroFast = false;
     cachedLogo = null;
+    trail.length = 0;
+    pointerInside = false;
     uploadStars();
   };
 
@@ -625,35 +629,16 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
-    const decay = Math.exp(-dt / 350);
     for (let i = trail.length - 1; i >= 0; i -= 1) {
-      trail[i].strength *= decay;
-      if (trail[i].strength < 0.025) trail.splice(i, 1);
-    }
-    if (pointerInside) {
-      const previousX = pointerX;
-      const previousY = pointerY;
-      const pointerFollow = 1 - Math.exp(-dt / 880);
-      pointerX += (pointerTargetX - pointerX) * pointerFollow;
-      pointerY += (pointerTargetY - pointerY) * pointerFollow;
-      if (Math.hypot(pointerX - previousX, pointerY - previousY) > 0.12) {
-        const head = trail[0];
-        if (!head || Math.hypot(head.x - pointerX, head.y - pointerY) > 3) {
-          trail.unshift({ x: pointerX, y: pointerY, strength: 1 });
-          if (trail.length > 5) trail.length = 5;
-        } else {
-          head.x = pointerX;
-          head.y = pointerY;
-          head.strength = 1;
-        }
-      }
+      if (now - trail[i].at >= TRAIL_LIFETIME_MS) trail.splice(i, 1);
     }
     trailUniform.fill(0);
     trail.forEach((point, index) => {
       const offset = index * 3;
       trailUniform[offset] = point.x;
       trailUniform[offset + 1] = point.y;
-      trailUniform[offset + 2] = point.strength;
+      const age = clamp((now - point.at) / TRAIL_LIFETIME_MS);
+      trailUniform[offset + 2] = (1 - smoothstep(age)) * (index === 0 ? 1 : 0.7);
     });
     pointerSpeed *= Math.exp(-dt / 110);
     if (target !== settleTarget) {
@@ -778,9 +763,40 @@ export function createLogoGalaxy({
     const distance = pointerInside ? Math.hypot(x - pointerTargetX, y - pointerTargetY) : 0;
     pointerSpeed = Math.min(48, (distance / elapsed) * 16.67);
     if (!pointerInside) {
-      pointerX = x;
-      pointerY = y;
+      lastTrailSampleX = x;
+      lastTrailSampleY = y;
+      trail.unshift({ x, y, at: now });
+    } else if (distance > 0.12) {
+      // Keep the newest point at the real cursor while preserving evenly
+      // spaced samples behind it, including across fast pointer events.
+      if (!trail.length) {
+        trail.push({ x: pointerTargetX, y: pointerTargetY, at: now });
+      }
+      const dx = x - lastTrailSampleX;
+      const dy = y - lastTrailSampleY;
+      const pathLength = Math.hypot(dx, dy);
+      const steps = Math.max(
+        0,
+        Math.floor((pathLength - TRAIL_SPACING * 0.5) / TRAIL_SPACING),
+      );
+      const firstStep = Math.max(1, steps - TRAIL_CAPACITY + 2);
+      for (let step = firstStep; step <= steps; step += 1) {
+        const portion = (step * TRAIL_SPACING) / pathLength;
+        trail.splice(1, 0, {
+          x: lastTrailSampleX + dx * portion,
+          y: lastTrailSampleY + dy * portion,
+          at: now,
+        });
+      }
+      if (steps) {
+        const portion = (steps * TRAIL_SPACING) / pathLength;
+        lastTrailSampleX += dx * portion;
+        lastTrailSampleY += dy * portion;
+      }
+      if (trail[0]) trail[0] = { x, y, at: now };
+      else trail.unshift({ x, y, at: now });
     }
+    if (trail.length > TRAIL_CAPACITY) trail.length = TRAIL_CAPACITY;
     pointerTargetX = x;
     pointerTargetY = y;
     pointerInside = true;
