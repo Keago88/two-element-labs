@@ -712,7 +712,7 @@ export function createLogoGalaxy({
     gl.uniform1f(starLoc.spin, time * 0.045);
     gl.uniform3fv(starLoc.trail, trailUniform);
     gl.uniform1f(starLoc.trailCount, trail.length);
-    gl.uniform1f(starLoc.hoverRadius, cssW < 951 ? 74 : 118);
+    gl.uniform1f(starLoc.hoverRadius, cssW < 951 ? 14.8 : 23.6);
     gl.uniform1f(starLoc.pointerSpeed, pointerSpeed);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
