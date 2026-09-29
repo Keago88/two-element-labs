@@ -72,19 +72,19 @@ void main() {
   // attractor with a fading strength; once it expires, pos is the untouched
   // galaxy position again, which gives the interaction its spring-back motion.
   vec2 displacement = vec2(0.0);
-  float interaction = 0.0;
   for (int i = 0; i < 8; i++) {
     float enabled = step(float(i) + 0.5, u_trailCount);
     vec2 delta = pos - u_trail[i].xy;
     float distanceToPointer = length(delta);
-    float influence = (1.0 - smoothstep(0.0, u_hoverRadius, distanceToPointer));
+    float reach = max(1.0, u_hoverRadius * mix(0.36, 0.48, twinkle));
+    float normalizedDistance = distanceToPointer / reach;
+    float influence = exp(-0.5 * normalizedDistance * normalizedDistance);
     influence *= u_trail[i].z * enabled;
     vec2 away = delta / max(distanceToPointer, 0.001);
     vec2 tangent = vec2(-away.y, away.x);
     float pulse = 0.82 + 0.18 * sin(u_time * 4.0 + distanceToPointer * 0.045);
     float swirlStrength = 0.34 + min(0.5, u_pointerSpeed * 0.012);
     displacement += (away * 0.68 + tangent * swirlStrength * pulse) * influence;
-    interaction = max(interaction, influence);
   }
   float assemblyRestraint = mix(1.0, 0.48, t);
   float scatterLength = length(displacement);
@@ -100,6 +100,7 @@ void main() {
   float point = size * perspective * tw * u_dpr;
   point *= mix(1.0, 1.25, layer);
   point *= mix(1.0, 0.55, t);
+  point *= mix(1.5, 1.0, t);
   gl_PointSize = clamp(point, 1.0, u_maxSize);
 
   float contentDim = 1.0;
@@ -111,9 +112,7 @@ void main() {
   }
 
   v_color = mix(color, vec3(0.96, 0.97, 1.0), t);
-  v_color = mix(v_color, v_color * vec3(1.15, 0.82, 0.68), interaction * 0.34);
   v_alpha = bright * tw * contentDim * mix(mix(0.55, 1.0, layer), 1.0, t);
-  v_alpha *= 1.0 + interaction * 0.32;
 }
 `;
 
@@ -507,6 +506,8 @@ export function createLogoGalaxy({
   let settleStarted = start;
   let pointerX = 0;
   let pointerY = 0;
+  let pointerTargetX = 0;
+  let pointerTargetY = 0;
   let pointerSpeed = 0;
   let pointerInside = false;
   let lastPointerAt = start;
@@ -630,14 +631,21 @@ export function createLogoGalaxy({
       if (trail[i].strength < 0.025) trail.splice(i, 1);
     }
     if (pointerInside) {
-      const head = trail[0];
-      if (!head || Math.hypot(head.x - pointerX, head.y - pointerY) > 3) {
-        trail.unshift({ x: pointerX, y: pointerY, strength: 1 });
-        if (trail.length > 8) trail.length = 8;
-      } else {
-        head.x = pointerX;
-        head.y = pointerY;
-        head.strength = 1;
+      const previousX = pointerX;
+      const previousY = pointerY;
+      const pointerFollow = 1 - Math.exp(-dt / 145);
+      pointerX += (pointerTargetX - pointerX) * pointerFollow;
+      pointerY += (pointerTargetY - pointerY) * pointerFollow;
+      if (Math.hypot(pointerX - previousX, pointerY - previousY) > 0.12) {
+        const head = trail[0];
+        if (!head || Math.hypot(head.x - pointerX, head.y - pointerY) > 3) {
+          trail.unshift({ x: pointerX, y: pointerY, strength: 1 });
+          if (trail.length > 8) trail.length = 8;
+        } else {
+          head.x = pointerX;
+          head.y = pointerY;
+          head.strength = 1;
+        }
       }
     }
     trailUniform.fill(0);
@@ -767,10 +775,14 @@ export function createLogoGalaxy({
     }
     const now = performance.now();
     const elapsed = Math.max(8, now - lastPointerAt);
-    const distance = pointerInside ? Math.hypot(x - pointerX, y - pointerY) : 0;
+    const distance = pointerInside ? Math.hypot(x - pointerTargetX, y - pointerTargetY) : 0;
     pointerSpeed = Math.min(48, (distance / elapsed) * 16.67);
-    pointerX = x;
-    pointerY = y;
+    if (!pointerInside) {
+      pointerX = x;
+      pointerY = y;
+    }
+    pointerTargetX = x;
+    pointerTargetY = y;
     pointerInside = true;
     lastPointerAt = now;
     play();
