@@ -17,6 +17,27 @@ export type LogoGalaxy = {
 };
 
 const FLOATS = 16;
+const WAKE_CAPACITY = 32;
+const WAKE_SAMPLE_MS = 64;
+/** Production attack τ is 0.075s; 4× slower drift-out. */
+const WAKE_ATTACK_S = 0.3;
+/** Production decay τ is 0.55s; 4× slower return. */
+const WAKE_DECAY_S = 2.2;
+/** Production fade window is 1.0s–1.8s. */
+const WAKE_FADE_START_S = 4.0;
+const WAKE_FADE_END_S = 7.2;
+/** Production lifetime is 1800ms; keep the stroke until the slowed fade ends. */
+const WAKE_LIFETIME_MS = 7200;
+
+type WakeSegment = {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  sampledAt: number;
+  startedAt: number;
+  updatedAt: number;
+};
 
 const STAR_VERT = `
 attribute vec4 a0;
@@ -32,6 +53,11 @@ uniform float u_horizontal;
 uniform vec4 u_logo;
 uniform vec2 u_center;
 uniform float u_maxSize;
+uniform vec4 u_wakeSegments[32];
+uniform vec2 u_wakeTiming[32];
+uniform float u_wakeCount;
+uniform float u_hoverRadius;
+uniform float u_scatterDistance;
 varying vec3 v_color;
 varying float v_alpha;
 
@@ -62,6 +88,36 @@ void main() {
   vec2 field = mix(far, spiral, clamp(layer, 0.0, 1.0));
   vec2 logoPos = u_logo.xy + logoUV * u_logo.z;
   vec2 pos = mix(field, logoPos, t * pull);
+
+  // Integrate each swept stroke on the GPU. Direction and age stay with the
+  // stroke, so stars keep drifting after the cursor has passed and then return.
+  vec2 displacement = vec2(0.0);
+  for (int i = 0; i < 32; i++) {
+    if (float(i) >= u_wakeCount) break;
+    vec2 stroke = u_wakeSegments[i].zw - u_wakeSegments[i].xy;
+    float strokeLength = length(stroke);
+    vec2 direction = stroke / max(strokeLength, 0.001);
+    vec2 sideways = vec2(-direction.y, direction.x);
+    float along = clamp(dot(pos - u_wakeSegments[i].xy, stroke)
+      / max(dot(stroke, stroke), 0.001), 0.0, 1.0);
+    vec2 delta = pos - mix(u_wakeSegments[i].xy, u_wakeSegments[i].zw, along);
+    float reach = max(1.0, u_hoverRadius * mix(0.36, 0.48, twinkle));
+    float influence = exp(-0.5 * dot(delta, delta) / (reach * reach));
+
+    float age = max(0.0, u_wakeTiming[i].x - along * u_wakeTiming[i].y);
+    float response = (1.0 - exp(-age / ${WAKE_ATTACK_S.toFixed(3)})) * exp(-age / ${WAKE_DECAY_S.toFixed(3)});
+    response *= 1.0 - smoothstep(${WAKE_FADE_START_S.toFixed(1)}, ${WAKE_FADE_END_S.toFixed(1)}, age);
+    float coverage = min(1.0, strokeLength / (reach * 1.5));
+    float across = dot(delta, sideways) / reach;
+    float curl = sin(age * 3.5 + twinkle * 2.0) * 0.32;
+    vec2 drift = direction * (0.9 + 0.15 * twinkle)
+      + sideways * (across * 0.15 + curl);
+    displacement += drift * influence * response * coverage;
+  }
+  float assemblyRestraint = mix(1.0, 0.48, t);
+  vec2 scatter = displacement / (1.0 + length(displacement) * 0.65);
+  float mobility = mix(1.15, 0.45, smoothstep(2.0, 7.0, size));
+  pos += scatter * u_scatterDistance * assemblyRestraint * mobility;
 
   vec2 clip = (pos / u_res) * 2.0 - 1.0;
   clip.y *= -1.0;
@@ -506,6 +562,14 @@ export function createLogoGalaxy({
   let lastNow = start;
   let settleTarget = 0;
   let settleStarted = start;
+  let pointerTargetX = 0;
+  let pointerTargetY = 0;
+  let pointerInside = false;
+  let lastPointerAt = start;
+  const wake: WakeSegment[] = [];
+  let activeWake: WakeSegment | null = null;
+  const wakeUniform = new Float32Array(WAKE_CAPACITY * 4);
+  const wakeTiming = new Float32Array(WAKE_CAPACITY * 2);
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -532,6 +596,11 @@ export function createLogoGalaxy({
           logo: gl.getUniformLocation(starProg, "u_logo"),
           center: gl.getUniformLocation(starProg, "u_center"),
           maxSize: gl.getUniformLocation(starProg, "u_maxSize"),
+          wake: gl.getUniformLocation(starProg, "u_wakeSegments[0]"),
+          wakeTiming: gl.getUniformLocation(starProg, "u_wakeTiming[0]"),
+          wakeCount: gl.getUniformLocation(starProg, "u_wakeCount"),
+          hoverRadius: gl.getUniformLocation(starProg, "u_hoverRadius"),
+          scatterDistance: gl.getUniformLocation(starProg, "u_scatterDistance"),
         }
       : null;
 
@@ -581,6 +650,9 @@ export function createLogoGalaxy({
     glReady = false;
     heroFast = false;
     cachedLogo = null;
+    wake.length = 0;
+    activeWake = null;
+    pointerInside = false;
     uploadStars();
   };
 
@@ -621,6 +693,18 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
+    for (let i = wake.length - 1; i >= 0; i -= 1) {
+      if (now - wake[i].updatedAt >= WAKE_LIFETIME_MS) wake.splice(i, 1);
+    }
+    wake.forEach((segment, index) => {
+      const offset = index * 4;
+      wakeUniform[offset] = segment.fromX;
+      wakeUniform[offset + 1] = segment.fromY;
+      wakeUniform[offset + 2] = segment.toX;
+      wakeUniform[offset + 3] = segment.toY;
+      wakeTiming[index * 2] = (now - segment.startedAt) / 1000;
+      wakeTiming[index * 2 + 1] = (segment.updatedAt - segment.startedAt) / 1000;
+    });
     if (target !== settleTarget) {
       settleTarget = target;
       settleStarted = now;
@@ -692,6 +776,11 @@ export function createLogoGalaxy({
     }
     gl.uniform1f(starLoc.time, time);
     gl.uniform1f(starLoc.spin, time * 0.045);
+    gl.uniform4fv(starLoc.wake, wakeUniform);
+    gl.uniform2fv(starLoc.wakeTiming, wakeTiming);
+    gl.uniform1f(starLoc.wakeCount, wake.length);
+    gl.uniform1f(starLoc.hoverRadius, cssW < 951 ? 14.8 : 23.6);
+    gl.uniform1f(starLoc.scatterDistance, cssW < 951 ? 80 : 130);
     gl.drawArrays(gl.POINTS, 0, starCount);
   };
 
@@ -710,6 +799,9 @@ export function createLogoGalaxy({
   const stop = () => {
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
+    wake.length = 0;
+    activeWake = null;
+    pointerInside = false;
   };
 
   const observer = new IntersectionObserver(
@@ -728,6 +820,55 @@ export function createLogoGalaxy({
     else play();
   };
   document.addEventListener("visibilitychange", onVisibility);
+
+  const onPointerMove = (event: PointerEvent) => {
+    const box = canvasBox ?? canvas.getBoundingClientRect();
+    const x = event.clientX - box.left;
+    const y = event.clientY - box.top;
+    const inside = x >= 0 && x <= box.width && y >= 0 && y <= box.height;
+    if (!inside) {
+      pointerInside = false;
+      activeWake = null;
+      return;
+    }
+    const now = performance.now();
+    const distance = pointerInside ? Math.hypot(x - pointerTargetX, y - pointerTargetY) : 0;
+    if (distance > 0.12 && !isPaused()) {
+      // Time-based sampling retains the entire settling interval even during
+      // a fast sweep. Each segment covers the gaps between pointer events.
+      if (!activeWake || now - activeWake.sampledAt >= WAKE_SAMPLE_MS) {
+        activeWake = {
+          fromX: pointerTargetX,
+          fromY: pointerTargetY,
+          toX: x,
+          toY: y,
+          sampledAt: now,
+          startedAt: Math.max(lastPointerAt, now - 32),
+          updatedAt: now,
+        };
+        wake.unshift(activeWake);
+        if (wake.length > WAKE_CAPACITY) wake.length = WAKE_CAPACITY;
+      } else {
+        activeWake.toX = x;
+        activeWake.toY = y;
+        activeWake.updatedAt = now;
+      }
+    }
+    pointerTargetX = x;
+    pointerTargetY = y;
+    pointerInside = true;
+    lastPointerAt = now;
+    play();
+  };
+  const onPointerLeave = () => {
+    pointerInside = false;
+    activeWake = null;
+  };
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
+  document.documentElement.addEventListener("pointerleave", onPointerLeave, {
+    passive: true,
+  });
+  window.addEventListener("blur", onPointerLeave);
 
   const boot = requestAnimationFrame(() => {
     if (destroyed) return;
@@ -775,6 +916,9 @@ export function createLogoGalaxy({
       stop();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pointermove", onPointerMove);
+      document.documentElement.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("blur", onPointerLeave);
       if (gl) {
         if (stars) gl.deleteBuffer(stars);
         if (starProg) gl.deleteProgram(starProg);
