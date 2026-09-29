@@ -32,7 +32,7 @@ uniform float u_horizontal;
 uniform vec4 u_logo;
 uniform vec2 u_center;
 uniform float u_maxSize;
-uniform vec3 u_trail[8];
+uniform vec3 u_trail[5];
 uniform float u_trailCount;
 uniform float u_hoverRadius;
 uniform float u_scatterDistance;
@@ -72,7 +72,7 @@ void main() {
   // attractor with a fading strength; once it expires, pos is the untouched
   // galaxy position again, which gives the interaction its spring-back motion.
   vec2 displacement = vec2(0.0);
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 5; i++) {
     float enabled = step(float(i) + 0.5, u_trailCount);
     vec2 delta = pos - u_trail[i].xy;
     float distanceToPointer = length(delta);
@@ -512,7 +512,7 @@ export function createLogoGalaxy({
   let pointerInside = false;
   let lastPointerAt = start;
   const trail: Array<{ x: number; y: number; strength: number }> = [];
-  const trailUniform = new Float32Array(8 * 3);
+  const trailUniform = new Float32Array(5 * 3);
 
   const starProg = gl ? program(gl, STAR_VERT, STAR_FRAG) : null;
   const stars = gl?.createBuffer() ?? null;
@@ -625,7 +625,7 @@ export function createLogoGalaxy({
     const target = assembleT(lastJourney);
     const dt = Math.min(32, Math.max(0, now - lastNow));
     lastNow = now;
-    const decay = Math.exp(-dt / 430);
+    const decay = Math.exp(-dt / 350);
     for (let i = trail.length - 1; i >= 0; i -= 1) {
       trail[i].strength *= decay;
       if (trail[i].strength < 0.025) trail.splice(i, 1);
@@ -633,14 +633,14 @@ export function createLogoGalaxy({
     if (pointerInside) {
       const previousX = pointerX;
       const previousY = pointerY;
-      const pointerFollow = 1 - Math.exp(-dt / 145);
+      const pointerFollow = 1 - Math.exp(-dt / 220);
       pointerX += (pointerTargetX - pointerX) * pointerFollow;
       pointerY += (pointerTargetY - pointerY) * pointerFollow;
       if (Math.hypot(pointerX - previousX, pointerY - previousY) > 0.12) {
         const head = trail[0];
         if (!head || Math.hypot(head.x - pointerX, head.y - pointerY) > 3) {
           trail.unshift({ x: pointerX, y: pointerY, strength: 1 });
-          if (trail.length > 8) trail.length = 8;
+          if (trail.length > 5) trail.length = 5;
         } else {
           head.x = pointerX;
           head.y = pointerY;
