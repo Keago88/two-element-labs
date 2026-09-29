@@ -633,7 +633,7 @@ export function createLogoGalaxy({
     if (pointerInside) {
       const previousX = pointerX;
       const previousY = pointerY;
-      const pointerFollow = 1 - Math.exp(-dt / 220);
+      const pointerFollow = 1 - Math.exp(-dt / 880);
       pointerX += (pointerTargetX - pointerX) * pointerFollow;
       pointerY += (pointerTargetY - pointerY) * pointerFollow;
       if (Math.hypot(pointerX - previousX, pointerY - previousY) > 0.12) {
