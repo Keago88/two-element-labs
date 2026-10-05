@@ -25,7 +25,10 @@ export default async function OpenGraphImage() {
         <div
           style={{
             position: "absolute",
-            inset: 48,
+            top: 48,
+            left: 48,
+            width: size.width - 96,
+            height: size.height - 96,
             border: "1px solid rgba(255,255,255,0.16)",
             display: "flex",
             padding: 56,
