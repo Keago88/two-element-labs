@@ -4,8 +4,8 @@ import { SectionHeading } from "@/components/section-heading";
 import { services } from "@/lib/site";
 
 export function Services() {
-  const featured = services.find((service) => service.id === "content");
-  const rest = services.filter((service) => service.id !== "content");
+  const featured = services.find((service) => service.id === "design");
+  const rest = services.filter((service) => service.id !== "design");
 
   return (
     <section id="services" className="scroll-mt-24 border-b border-white/10">
@@ -14,9 +14,9 @@ export function Services() {
           <SectionHeading
             index="01"
             eyebrow="Capabilities"
-            title="Four services. One studio."
+            title="Websites, built and supported."
             titleFactor={0.12}
-            description="Pick what you need now. We do not sell a 12-product menu. If a brief needs software or tooling, Two Element Labs joins for that part only."
+            description="Website design and development, supported by SEO foundations, useful integrations, conversion optimisation and ongoing Care Plans."
           />
         </Reveal>
         <div className="mt-16 flex flex-col gap-16 lg:flex-row lg:items-start lg:gap-20">
@@ -35,10 +35,10 @@ export function Services() {
                   {featured.body}
                 </p>
                 <a
-                  href="#method"
+                  href="#process"
                   className="mt-8 inline-flex text-xs tracking-[0.2em] text-foreground uppercase underline-offset-4 hover:underline"
                 >
-                  See how we make it
+                  See our process
                 </a>
               </article>
             </Reveal>

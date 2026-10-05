@@ -10,13 +10,13 @@ export function Logo({
     <Link
       href="/"
       className={`brand ${className}`}
-      aria-label="Two Element Media home"
+      aria-label="Two Element Labs home"
     >
       <span className="brand-icon">
         <BrandMark title="" />
       </span>
       <span>
-        TWO ELEMENT<small>MEDIA</small>
+        TWO ELEMENT<small>LABS</small>
       </span>
     </Link>
   );

@@ -106,7 +106,7 @@ export function ContactForm({
     return (
       <Alert className="rounded-none border-white/15 bg-white/5 px-5 py-6">
         <CheckCircle2 />
-        <AlertTitle className="font-heading text-lg">Brief received</AlertTitle>
+        <AlertTitle className="font-heading text-lg">Website enquiry received</AlertTitle>
         <AlertDescription className="mt-2 text-muted-foreground">
           Thanks, we&apos;ve got your enquiry. We&apos;ll read it and get back to
           you by email or WhatsApp, Monday to Friday between 9:00 and 17:00. If
@@ -172,12 +172,14 @@ export function ContactForm({
         </Field>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="business" label="Business" error={errors.business}>
+        <Field id="business" label="Business" error={errors.business} required>
           <Input
             id="business"
             name="business"
             value={values.business}
             onChange={(event) => update("business", event.target.value)}
+            aria-invalid={Boolean(errors.business)}
+            aria-describedby={errors.business ? "business-error" : undefined}
             className="h-11 rounded-none bg-transparent"
           />
         </Field>
@@ -195,7 +197,7 @@ export function ContactForm({
           />
         </Field>
       </div>
-      <Field id="service" label="What do you need?" error={errors.service}>
+      <Field id="service" label="What do you need?" error={errors.service} required>
         <select
           id="service"
           name="service"
@@ -215,7 +217,7 @@ export function ContactForm({
           ))}
         </select>
       </Field>
-      <Field id="message" label="Your message" error={errors.message} required>
+      <Field id="message" label="Your website brief" error={errors.message} required>
         <Textarea
           id="message"
           name="message"
@@ -224,7 +226,7 @@ export function ContactForm({
           onChange={(event) => update("message", event.target.value)}
           aria-invalid={Boolean(errors.message)}
           aria-describedby={errors.message ? "message-error" : undefined}
-          placeholder="What do you need help with? Include any dates or budget you have in mind."
+          placeholder="Tell us about your business, your current website and what a new site needs to do. Include your timeline and budget if you know them."
           className="min-h-32 rounded-none bg-transparent"
         />
       </Field>

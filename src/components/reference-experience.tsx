@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -13,36 +12,9 @@ import {
 } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
 import { createLogoGalaxy } from "@/lib/logo-galaxy";
-import { mailtoHref, site, whatsappHref } from "@/lib/site";
+import { careItems, chapters, mailtoHref, packages, services, site, steps, whatsappHref } from "@/lib/site";
 
-const chapters = ["home", "about", "services", "contact"];
-const names = ["Home", "The studio", "Our services", "Contact"];
-const elements = [
-  {
-    title: "Content",
-    value: "Content",
-    body: "Website copy, emails, graphics and carousels. Written and designed for your business.",
-    items: "Website copy · Email content · Static graphics & carousels",
-  },
-  {
-    title: "Social media",
-    value: "Social",
-    body: "Content planning, captions, publishing and comment management for your social accounts.",
-    items: "Content calendars · Scheduled posts · Community management",
-  },
-  {
-    title: "Paid media",
-    value: "Paid media",
-    body: "Meta and Google advertising, from campaign setup to ongoing management and reporting.",
-    items: "Campaign strategy · Audience targeting · Optimisation & reporting",
-  },
-  {
-    title: "Web & creative",
-    value: "Web & creative",
-    body: "Business websites, landing pages and campaign design. Clear information, fast pages and an easy way to get in touch.",
-    items: "Business websites · Landing pages · Brand & campaign creative",
-  },
-];
+const lastChapter = chapters.length - 1;
 
 export function ReferenceExperience({
   initialService,
@@ -60,6 +32,7 @@ export function ReferenceExperience({
   const [horizontal, setHorizontal] = useState(false);
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState(0);
+  const [packageExpanded, setPackageExpanded] = useState(0);
   const [service, setService] = useState(initialService);
   const [briefOpen, setBriefOpen] = useState(
     Boolean(initialService || initialSuccess || initialError),
@@ -93,7 +66,7 @@ export function ReferenceExperience({
         const distance = Math.max(1, el.offsetHeight - window.innerHeight);
         progress = Math.max(
           0,
-          Math.min(3, ((window.scrollY - top) / distance) * 3),
+          Math.min(lastChapter, ((window.scrollY - top) / distance) * lastChapter),
         );
         el.style.setProperty("--travel", `${progress * el.clientWidth}px`);
         panels.forEach((panel, index) =>
@@ -115,12 +88,12 @@ export function ReferenceExperience({
         panels.forEach((panel) => panel.style.setProperty("--drift", "0px"));
       }
       // Linear, reversible gather from the first scroll through Contact.
-      let journey = progress / 3;
+      let journey = progress / lastChapter;
       if (!isHorizontal) {
         const y = window.scrollY;
         const contactStart = Math.max(
           1,
-          panels[3].getBoundingClientRect().top +
+          panels[lastChapter].getBoundingClientRect().top +
             y -
             window.innerHeight * 0.42,
         );
@@ -137,7 +110,7 @@ export function ReferenceExperience({
         "--reading-progress",
         String(
           isHorizontal
-            ? progress / 3
+            ? progress / lastChapter
             : Math.min(
                 1,
                 window.scrollY /
@@ -160,24 +133,33 @@ export function ReferenceExperience({
       queue();
     };
     const navigate = (id: string, smooth = true) => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
       const aliases: Record<string, string> = {
         content: "services",
         social: "services",
         paid: "services",
         web: "services",
-        work: "services",
-        method: "about",
+        about: "work",
+        method: "process",
+        maintenance: "care",
+        "care-plan": "care",
+        hosting: "care",
+        design: "services",
+        development: "services",
+        seo: "services",
+        integrations: "services",
         main: "home",
       };
       const target = aliases[id] ?? id;
-      const index = chapters.indexOf(target);
+      const index = chapters.findIndex((chapter) => chapter.id === target);
       if (index < 0) return;
-      const serviceIndex = ["content", "social", "paid", "web"].indexOf(id);
+      const serviceIndex = services.findIndex((item) => item.id === id);
       if (serviceIndex >= 0) setExpanded(serviceIndex);
       const top = el.getBoundingClientRect().top + window.scrollY;
       const destination = isHorizontal
-        ? top + (index * (el.offsetHeight - innerHeight)) / 3
-        : panels[index].getBoundingClientRect().top + window.scrollY - 64;
+        ? top + (index * (el.offsetHeight - innerHeight)) / lastChapter
+        : panels[index].getBoundingClientRect().top + window.scrollY - 77;
       window.scrollTo({
         top: Math.max(0, destination),
         behavior: smooth && !reduced.matches ? "smooth" : "instant",
@@ -197,7 +179,7 @@ export function ReferenceExperience({
         return;
       event.preventDefault();
       const id = a.dataset.scene ?? "home";
-      history.replaceState(null, "", `/#${id}`);
+      history.replaceState(null, "", `${location.pathname}${location.search}#${id}`);
       navigate(id);
     };
     const hash = () => navigate(location.hash.slice(1) || "home", false);
@@ -206,7 +188,7 @@ export function ReferenceExperience({
       configure();
       cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(() =>
-        navigate(chapters[index], false),
+        navigate(chapters[index].id, false),
       );
     };
     configure();
@@ -247,7 +229,7 @@ export function ReferenceExperience({
     };
   }, [briefOpen]);
 
-  const startBrief = (value = "") => {
+  const startBrief = (value = "Website design & development") => {
     setService(value);
     setBriefOpen(true);
   };
@@ -284,73 +266,56 @@ export function ReferenceExperience({
                 {...accessibility(0)}
               >
                 <div className="scene-label">
-                  Two Element Media <span>Cape Town, South Africa</span>
+                  {site.name} <span>Cape Town</span>
                 </div>
-                <h1 id="home-title" className="editorial-title">
-                  CONTENT.
-                  <br />
-                  SOCIAL.
-                  <br />
-                  <span>PAID. WEB.</span>
+                <h1 id="home-title" className="editorial-title labs-headline">
+                  YOUR WEBSITE<br />
+                  SHOULD BE<br />
+                  BRINGING YOU<br />
+                  <span>BUSINESS.</span>
                 </h1>
                 <div className="home-bottom">
                   <p>
-                    We write, design and manage digital marketing for small and
-                    medium businesses in Cape Town.
+                    Website design and development for businesses that need a
+                    credible, professional site. Built in Cape Town. Looked after
+                    with ongoing hosting and care.
                   </p>
-                  <a
-                    href="#services"
-                    data-scene="services"
-                    className="text-cta"
-                  >
-                    Explore our services <ArrowDown size={20} />
-                  </a>
+                  <div className="hero-actions">
+                    <button type="button" className="text-cta" onClick={() => startBrief()}>
+                      Discuss your website <ArrowUpRight size={20} />
+                    </button>
+                    <a href="#work" data-scene="work" className="text-cta">
+                      See our work <ArrowDown size={20} />
+                    </a>
+                  </div>
                 </div>
               </section>
               <section
-                id="about"
+                id="work"
                 className="scene scene-about"
-                aria-labelledby="about-title"
+                aria-labelledby="work-title"
                 {...accessibility(1)}
               >
-                <div className="scene-label">01 / The studio</div>
+                <div className="scene-label">01 / Work <span>In-house project</span></div>
                 <div className="studio-layout">
                   <div>
-                    <h2 id="about-title">
-                      A Cape Town
-                      <br />
-                      digital studio.
-                    </h2>
+                    <h2 id="work-title">Our own site.<br />Built in-house.</h2>
                     <div className="studio-copy">
                       <p>
-                        Two Element Media helps small and medium businesses with
-                        content, social media, paid advertising and websites.
+                        The Two Element Labs website is our own design and
+                        development project. You’re using it now.
                       </p>
                       <p>
-                        Need regular support or a single project? Tell us what
-                        you need help with. We’ll work out the scope, cost and
-                        timeline with you.
+                        Responsive layouts, a custom scroll interaction and an
+                        enquiry form connected to our workflow. A working example
+                        of how we design and build.
                       </p>
                     </div>
-                    <a
-                      href="#contact"
-                      data-scene="contact"
-                      className="text-cta"
-                    >
-                      Work with us <ArrowUpRight size={20} />
+                    <p className="project-detail">Website design · Development · Enquiry integration</p>
+                    <a href="#home" data-scene="home" className="text-cta">
+                      Explore the website <ArrowUpRight size={20} />
                     </a>
                   </div>
-                  <figure className="studio-photo">
-                    <div>
-                      <Image
-                        src="/cape-town.jpg"
-                        alt="Table Mountain and Cape Town"
-                        fill
-                        sizes="(max-width:950px) 90vw, 40vw"
-                      />
-                    </div>
-                    <figcaption>Cape Town, South Africa</figcaption>
-                  </figure>
                 </div>
               </section>
               <section
@@ -362,21 +327,18 @@ export function ReferenceExperience({
                 <div className="scene-label">02 / Services</div>
                 <div className="services-layout">
                   <div>
-                    <h2 id="services-title">What we do.</h2>
+                    <h2 id="services-title">What we build.</h2>
                     <p className="section-intro">
-                      Choose a service to see what’s included.
+                      Websites are the core. Search, integrations and conversion
+                      improvements support them.
                     </p>
-                    <a
-                      href="#contact"
-                      data-scene="contact"
-                      className="text-cta"
-                    >
-                      Discuss a project <ArrowUpRight size={20} />
+                    <a href="#packages" data-scene="packages" className="text-cta">
+                      Find your starting point <ArrowUpRight size={20} />
                     </a>
                   </div>
                   <div className="service-accordion">
-                    {elements.map((item, i) => (
-                      <article className="service-row" key={item.value}>
+                    {services.map((item, i) => (
+                      <article className="service-row" key={item.id}>
                         <h3>
                           <button
                             type="button"
@@ -386,27 +348,14 @@ export function ReferenceExperience({
                           >
                             <span className="service-number">0{i + 1}</span>
                             <span>{item.title}</span>
-                            {expanded === i ? (
-                              <Minus size={20} />
-                            ) : (
-                              <Plus size={20} />
-                            )}
+                            {expanded === i ? <Minus size={20} /> : <Plus size={20} />}
                           </button>
                         </h3>
-                        <div
-                          id={`service-panel-${i}`}
-                          hidden={expanded !== i}
-                          className="service-description"
-                        >
+                        <div id={`service-panel-${i}`} hidden={expanded !== i} className="service-description">
                           <p>{item.body}</p>
                           <small>{item.items}</small>
-                          <button
-                            type="button"
-                            className="text-cta"
-                            onClick={() => startBrief(item.value)}
-                          >
-                            Enquire about {item.title.toLowerCase()}{" "}
-                            <ArrowUpRight size={16} />
+                          <button type="button" className="text-cta" onClick={() => startBrief(item.value)}>
+                            Discuss {item.title.toLowerCase()} <ArrowUpRight size={16} />
                           </button>
                         </div>
                       </article>
@@ -415,78 +364,133 @@ export function ReferenceExperience({
                 </div>
               </section>
               <section
+                id="packages"
+                className="scene scene-packages"
+                aria-labelledby="packages-title"
+                {...accessibility(3)}
+              >
+                <div className="scene-label">03 / Packages <span>Quoted per project</span></div>
+                <div className="services-layout">
+                  <div>
+                    <h2 id="packages-title">Website packages.</h2>
+                    <p className="section-intro">
+                      Choose a scope. We quote for your pages and integrations
+                      before the build.
+                    </p>
+                  </div>
+                  <div className="service-accordion">
+                    {packages.map((item, i) => (
+                      <article className="service-row" key={item.value}>
+                        <h3>
+                          <button
+                            type="button"
+                            aria-expanded={packageExpanded === i}
+                            aria-controls={`package-panel-${i}`}
+                            onClick={() => setPackageExpanded(packageExpanded === i ? -1 : i)}
+                          >
+                            <span className="service-number">0{i + 1}</span>
+                            <span>{item.title}</span>
+                            {packageExpanded === i ? <Minus size={20} /> : <Plus size={20} />}
+                          </button>
+                        </h3>
+                        <div id={`package-panel-${i}`} hidden={packageExpanded !== i} className="service-description">
+                          <p>{item.body}</p>
+                          <small>{item.items}</small>
+                          <button type="button" className="text-cta" onClick={() => startBrief(item.value)}>
+                            Discuss this package <ArrowUpRight size={16} />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                    <p className="package-note">One project quote. Hosting and care billed monthly.</p>
+                  </div>
+                </div>
+              </section>
+              <section
+                id="process"
+                className="scene scene-process"
+                aria-labelledby="process-title"
+                {...accessibility(4)}
+              >
+                <div className="scene-label">04 / Process</div>
+                <div className="services-layout">
+                  <div>
+                    <h2 id="process-title">From brief to launch.</h2>
+                    <p className="section-intro">Clear stages, with your feedback built in.</p>
+                  </div>
+                  <ol className="detail-list">
+                    {steps.map((step) => (
+                      <li key={step.n}>
+                        <span className="service-number">{step.n}</span>
+                        <div><h3>{step.title}</h3><p>{step.body}</p></div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </section>
+              <section
+                id="care"
+                className="scene scene-care"
+                aria-labelledby="care-title"
+                {...accessibility(5)}
+              >
+                <div className="scene-label">05 / Care Plan <span>Monthly support</span></div>
+                <div className="services-layout">
+                  <div>
+                    <h2 id="care-title">Website care.</h2>
+                    <p className="section-intro">Monthly hosting and maintenance, with a clear scope of ongoing support.</p>
+                  </div>
+                  <div>
+                    <ul className="detail-list">
+                      {careItems.map((item, i) => (
+                        <li key={item.title}>
+                          <span className="service-number">0{i + 1}</span>
+                          <div><h3>{item.title}</h3><p>{item.body}</p></div>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="package-note">Quoted monthly to suit your site. Inclusions, support hours and update allowance agreed before you start.</p>
+                    <button type="button" className="text-cta" onClick={() => startBrief("Care Plan")}>
+                      Discuss a Care Plan <ArrowUpRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              </section>
+              <section
                 id="contact"
                 className="scene scene-contact"
                 aria-labelledby="contact-title"
-                {...accessibility(3)}
+                {...accessibility(6)}
               >
-                <div className="scene-label">
-                  03 / Contact <span>{site.hours}</span>
-                </div>
+                <div className="scene-label">06 / Contact <span>{site.hours}</span></div>
                 <h2 id="contact-title" className="editorial-title">
-                  TELL US
-                  <br />
-                  WHAT YOU
-                  <br />
-                  <span>NEED.</span>
+                  LET’S BUILD<br />
+                  YOUR NEXT<br />
+                  <span>WEBSITE.</span>
                 </h2>
-                <div
-                  ref={galaxyDock}
-                  className="logo-galaxy-dock"
-                  aria-hidden="true"
-                >
+                <div ref={galaxyDock} className="logo-galaxy-dock" aria-hidden="true">
                   {/* Official raster — sampled by the galaxy; static fallback for reduced motion. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="logo-galaxy-static"
-                    src="/logo-mark-alpha.png"
-                    alt=""
-                    width={1192}
-                    height={1192}
-                    decoding="async"
-                    loading="lazy"
-                  />
+                  <img className="logo-galaxy-static" src="/logo-mark-alpha.png" alt="" width={1192} height={1192} decoding="async" loading="lazy" />
                 </div>
                 <div className="contact-bottom">
                   <div>
-                    <p>
-                      Share a few details about your business and the work you
-                      have in mind.
-                    </p>
+                    <p>Tell us about your business, your current site and what you need it to do.</p>
                     <a className="contact-email" href={mailtoHref()}>
                       {site.email} <ArrowUpRight size={18} />
                     </a>
                     {whatsappHref() ? (
-                      <a
-                        className="contact-email"
-                        href={whatsappHref() ?? undefined}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <a className="contact-email" href={whatsappHref() ?? undefined} target="_blank" rel="noreferrer">
                         WhatsApp <ArrowUpRight size={18} />
                       </a>
                     ) : null}
                   </div>
-                  <button
-                    className="enquiry-button"
-                    onClick={() => startBrief()}
-                    type="button"
-                  >
-                    Send an enquiry <ArrowUpRight size={26} />
+                  <button className="enquiry-button" onClick={() => startBrief()} type="button">
+                    Discuss your website <ArrowUpRight size={26} />
                   </button>
                 </div>
                 <div className="contact-socials">
-                  {[
-                    ["Instagram", site.social.instagram],
-                    ["Facebook", site.social.facebook],
-                    ["Threads", site.social.threads],
-                    ["TikTok", site.social.tiktok],
-                  ].map(([label, href]) => (
-                    <a key={label} href={href} target="_blank" rel="noreferrer">
-                      {label}
-                      <ArrowUpRight size={12} />
-                    </a>
-                  ))}
+                  <span>{site.name} · Cape Town</span>
                   <a href="/privacy">Privacy</a>
                   <a href="/terms">Terms</a>
                 </div>
@@ -495,12 +499,12 @@ export function ReferenceExperience({
           </div>
           <div className="chapter-bar">
             <nav aria-label="Page chapters">
-              {chapters.map((id, i) => (
+              {chapters.map(({ id, label }, i) => (
                 <a
                   href={`#${id}`}
                   data-scene={id}
                   key={id}
-                  aria-label={names[i]}
+                  aria-label={label}
                   aria-current={active === i ? "step" : undefined}
                   className={active === i ? "is-active" : ""}
                 >
@@ -509,22 +513,22 @@ export function ReferenceExperience({
               ))}
             </nav>
             <span className="chapter-name" aria-live="polite">
-              {names[active]}
+              {chapters[active].label}
             </span>
             <div className="chapter-arrows">
               <a
-                href={`#${chapters[Math.max(0, active - 1)]}`}
-                data-scene={chapters[Math.max(0, active - 1)]}
+                href={`#${chapters[Math.max(0, active - 1)].id}`}
+                data-scene={chapters[Math.max(0, active - 1)].id}
                 aria-label="Previous chapter"
                 aria-disabled={active === 0}
               >
                 <ArrowLeft size={18} />
               </a>
               <a
-                href={`#${chapters[Math.min(3, active + 1)]}`}
-                data-scene={chapters[Math.min(3, active + 1)]}
+                href={`#${chapters[Math.min(lastChapter, active + 1)].id}`}
+                data-scene={chapters[Math.min(lastChapter, active + 1)].id}
                 aria-label="Next chapter"
-                aria-disabled={active === 3}
+                aria-disabled={active === lastChapter}
               >
                 <ArrowRight size={18} />
               </a>
@@ -550,10 +554,10 @@ export function ReferenceExperience({
           >
             <X size={22} />
           </button>
-          <span className="eyebrow">TWO ELEMENT MEDIA / START A BRIEF</span>
+          <span className="eyebrow">TWO ELEMENT LABS / WEBSITE ENQUIRY</span>
           <h2 id="brief-title">Send an enquiry.</h2>
           <p className="brief-intro">
-            Tell us about your business, the work you need and your timeline.
+            Tell us about your business, your website requirements and your timeline.
           </p>
           <ContactForm
             key={`${service}-${briefOpen}`}

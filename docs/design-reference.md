@@ -1,4 +1,4 @@
-# Two Element Media design
+# Two Element Labs design
 
 The four-chapter navigation and typographic scale were adapted from the FREY reference: https://dribbble.com/shots/22680408-FREY-3D-Agency-Website-Animation
 

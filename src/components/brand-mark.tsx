@@ -6,7 +6,7 @@ type BrandMarkProps = {
 } & Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt">;
 
 export const BrandMark = forwardRef<HTMLImageElement, BrandMarkProps>(
-  function BrandMark({ className, title = "Two Element", ...rest }, ref) {
+  function BrandMark({ className, title = "Two Element Labs", ...rest }, ref) {
     return (
       // Official raster mark — do not replace with an SVG recreation.
       // eslint-disable-next-line @next/next/no-img-element

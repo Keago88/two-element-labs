@@ -23,11 +23,13 @@ export const metadata: Metadata = {
   description: site.description,
   applicationName: site.name,
   keywords: [
-    "Cape Town digital agency",
-    "content studio Cape Town",
-    "social media SME",
-    "paid media Cape Town",
-    "Two Element Media",
+    "website design Cape Town",
+    "website development Cape Town",
+    "business websites",
+    "website hosting and maintenance",
+    "website Care Plans",
+    "SEO foundations",
+    "Two Element Labs",
   ],
   authors: [{ name: site.name }],
   openGraph: {
@@ -62,12 +64,26 @@ const jsonLd = {
     addressLocality: "Cape Town",
     addressCountry: "ZA",
   },
-  sameAs: [
-    site.social.facebook,
-    site.social.instagram,
-    site.social.threads,
-    site.social.tiktok,
-  ],
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "Website services",
+    itemListElement: [
+      "Website design and development",
+      "Hosting and maintenance / Care Plans",
+      "SEO foundations",
+      "Website integrations",
+      "Conversion optimisation",
+    ].map((name) => ({
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name,
+        serviceType: name,
+        provider: { "@type": "ProfessionalService", name: site.name },
+        areaServed: "Cape Town",
+      },
+    })),
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

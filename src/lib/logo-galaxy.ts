@@ -618,7 +618,8 @@ export function createLogoGalaxy({
   };
 
   const measure = () => {
-    canvasBox = canvas.getBoundingClientRect();
+    // The canvas has an inline pixel size; measure its responsive host on resize.
+    canvasBox = canvas.parentElement?.getBoundingClientRect() ?? canvas.getBoundingClientRect();
     dockBox = dock?.getBoundingClientRect() ?? null;
   };
 
