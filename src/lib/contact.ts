@@ -43,6 +43,12 @@ export function validateContact(
   if (!EMAIL_RE.test(payload.email)) {
     errors.email = "Use a valid email so we can reply.";
   }
+  if (!payload.business) {
+    errors.business = "Please add your business name.";
+  }
+  if (!payload.service) {
+    errors.service = "Choose a service, or select Not sure yet.";
+  }
   if (payload.phone && payload.phone.replace(/\D/g, "").length < 9) {
     errors.phone = "That phone number looks short.";
   }

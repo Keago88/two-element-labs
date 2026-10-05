@@ -1,8 +1,8 @@
 {
-  "name": "two-element-media",
+  "name": "two-element-labs",
   "version": "0.1.0",
   "private": true,
-  "description": "Marketing site for Two Element Media, a Cape Town content and digital studio.",
+  "description": "Website for Two Element Labs, a Cape Town website design and development studio.",
   "scripts": {
     "dev": "next dev --port 43177",
     "build": "next build",

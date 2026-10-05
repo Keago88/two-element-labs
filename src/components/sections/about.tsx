@@ -11,21 +11,22 @@ export function About() {
           <SectionHeading
             index="04"
             eyebrow="Studio"
-            title="Two Element Media. Labs stays light."
+            title="Two Element Labs."
             titleFactor={0.12}
           />
         </Reveal>
         <Reveal delayMs={80}>
           <div className="mt-16 max-w-3xl">
             <p className="measure text-lg leading-relaxed text-muted-foreground sm:text-xl sm:leading-relaxed">
-              We are a Cape Town content and digital studio for SMEs. Content,
-              social, paid media, and web. Briefs in plain English, files on
-              time, a monthly note an owner can read.
+              We design and develop professional websites for Cape Town
+              businesses that need a credible online presence and a clear
+              route from visitor to enquiry.
             </p>
             <Parallax factor={0.12}>
               <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
-                Two Element Labs is the development side. It stays in the wings
-                unless a brief needs product or tooling.
+                Website design and development are our core work. SEO
+                foundations, integrations and conversion optimisation support
+                the build; hosting and Care Plans support it after launch.
               </p>
             </Parallax>
             <p className="mt-8 text-sm leading-relaxed text-muted-foreground">

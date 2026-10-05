@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: "How Two Element Media handles contact details and site data.",
+  description: "How Two Element Labs handles contact details and site data.",
 };
 
 export default function PrivacyPage() {
@@ -17,23 +17,25 @@ export default function PrivacyPage() {
       </h1>
       <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
         <p>
-          Two Element Media is a Cape Town studio. If you send a brief through
-          this site, we use your name, email, phone, business name, and message
-          only to reply and to do the work you asked for.
+          Two Element Labs is a Cape Town website design and development studio.
+          When you send an enquiry, we use the name, email, phone number,
+          business name, service selection and message you provide to respond
+          and discuss the work you need.
         </p>
         <p>
-          We do not sell contact lists. We do not run advertising pixels on this
-          site in the default build. Hosting (Vercel) and, if configured, email
-          delivery (Resend) will process the request in order to deliver it.
+          Form requests pass through our website hosting provider, Vercel, and
+          are delivered to Google Forms. Google processes and stores the
+          submitted fields as part of this delivery. The contact route also
+          uses a request IP address to limit repeated submissions.
         </p>
         <p>
-          You can ask us to delete a brief you sent by emailing{" "}
+          We do not sell contact lists. This website does not include
+          advertising pixels.
+        </p>
+        <p>
+          To ask about your information, request a correction or ask us to delete
+          an enquiry, email{" "}
           <a href="mailto:twoemedia@gmail.com">twoemedia@gmail.com</a>.
-        </p>
-        <p>
-          This page is a placeholder. It is not legal advice and does not cover
-          every processing activity a live agency might add later (analytics,
-          booking tools, payment).
         </p>
       </div>
       <p className="mt-12">

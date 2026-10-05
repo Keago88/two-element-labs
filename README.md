@@ -1,6 +1,8 @@
-# Two Element Media
+# Two Element Labs
 
-Marketing site for Two Element Media, a Cape Town content and digital studio.
+Website for Two Element Labs, a Cape Town website design and development studio.
+
+The core offer is business websites, with SEO foundations, integrations and conversion optimisation. Hosting and maintenance / Care Plans provide ongoing support after launch. Existing contact details remain twoemedia@gmail.com and WhatsApp +27 68 616 0222.
 
 ## Environments
 

@@ -5,15 +5,15 @@ import { steps } from "@/lib/site";
 
 export function Method() {
   return (
-    <section id="method" className="scroll-mt-24 border-b border-white/10">
+    <section id="process" className="scroll-mt-24 border-b border-white/10">
       <div className="section-y mx-auto w-full max-w-[1120px] px-5 sm:px-8">
         <Reveal>
           <SectionHeading
             index="02"
-            eyebrow="Method"
-            title="Brief. Frame. Make. Run."
+            eyebrow="Process"
+            title="Scope. Design. Build. Launch."
             titleFactor={0.12}
-            description="Four steps. You always know what happens next. No retainer that goes quiet."
+            description="Agree the scope, review the design, test the website and launch with a plan for ongoing care."
           />
         </Reveal>
         <div className="relative mt-20 max-w-3xl overflow-clip">

@@ -3,12 +3,12 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "Two Element Media - Content, social, paid media, and web for Cape Town SMEs";
+  "Two Element Labs — Website design and development for Cape Town businesses";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpenGraphImage() {
-  const logo = await readFile(join(process.cwd(), "public/logo-mark.png"));
+  const logo = await readFile(join(process.cwd(), "public/logo-mark-alpha.png"));
   const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
 
   return new ImageResponse(
@@ -18,7 +18,7 @@ export default async function OpenGraphImage() {
           width: "100%",
           height: "100%",
           display: "flex",
-          background: "#000",
+          background: "#0b1220",
           color: "#fff",
         }}
       >
@@ -48,21 +48,22 @@ export default async function OpenGraphImage() {
                 opacity: 0.7,
               }}
             >
-              TWO ELEMENT MEDIA
+              TWO ELEMENT LABS
             </div>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                fontSize: 72,
+                fontSize: 60,
                 lineHeight: 1.02,
                 marginTop: 28,
                 fontWeight: 600,
                 letterSpacing: -2,
               }}
             >
-              <div style={{ display: "flex" }}>Content, social,</div>
-              <div style={{ display: "flex" }}>paid media, and web.</div>
+              <div style={{ display: "flex" }}>Your website should</div>
+              <div style={{ display: "flex" }}>be bringing you</div>
+              <div style={{ display: "flex", color: "#de4625" }}>business.</div>
             </div>
             <div
               style={{
@@ -72,7 +73,7 @@ export default async function OpenGraphImage() {
                 opacity: 0.72,
               }}
             >
-              for Cape Town SMEs
+              Website design · Development · Care Plans
             </div>
           </div>
           <img

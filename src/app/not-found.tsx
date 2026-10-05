@@ -13,8 +13,8 @@ export default function NotFound() {
         That page is not on the map.
       </h1>
       <p className="mt-4 max-w-md text-muted-foreground">
-        The URL does not match a studio page. Head back to the homepage, or
-        send a brief if you were looking for us.
+        The URL does not match a Two Element Labs page. Head back to the
+        homepage, or contact us about your website.
       </p>
       <div className="mt-8 flex gap-3">
         <Button asChild className="h-11 rounded-none">

@@ -13,12 +13,12 @@ export function Contact({ sent = false }: { sent?: boolean }) {
           <SectionHeading
             index="05"
             eyebrow="Contact"
-            title="Tell us what has to move."
+            title="Tell us about your website."
             titleFactor={0.12}
             description={
               whatsapp
-                ? "Form or WhatsApp. We reply from Cape Town, usually within one business day."
-                : "Form. We reply from Cape Town, usually within one business day."
+                ? "Share your business, your website and what needs to improve. Use the form or WhatsApp to start a conversation."
+                : "Share your business, your website and what needs to improve. Use the form to start a conversation."
             }
           />
           <dl className="mt-10 space-y-6 text-sm">
@@ -46,7 +46,7 @@ export function Contact({ sent = false }: { sent?: boolean }) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Message {site.socialHandle}
+                    Message Two Element Labs
                   </a>
                 </dd>
               </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms",
-  description: "Terms of use for the Two Element Media marketing site.",
+  description: "Terms of use for the Two Element Labs website.",
 };
 
 export default function TermsPage() {
@@ -17,17 +17,19 @@ export default function TermsPage() {
       </h1>
       <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground">
         <p>
-          This website describes Two Element Media. Sending a form is a request
+          This website describes Two Element Labs. Sending a form is a request
           for a conversation, not a contract. Project fees, timelines, and
           usage rights are agreed in writing after a brief.
         </p>
         <p>
-          The service descriptions explain our capabilities. Project deliverables
-          and timelines are confirmed in your individual scope of work.
+          The service descriptions explain our capabilities. Website project
+          deliverables, fees and timelines are confirmed in your individual
+          scope of work. Care Plan fees and included support are agreed
+          separately before recurring services begin.
         </p>
         <p>
-          All original marks on this site — including the twin outlined
-          triangles and the TWO ELEMENT wordmark — belong to Two Element Media.
+          The original Two Element logo and branding on this site belong to
+          Two Element Labs.
           Do not copy the mark for another business.
         </p>
         <p>
