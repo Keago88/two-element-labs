@@ -6,10 +6,13 @@ The core offer is business websites, with SEO foundations, integrations and conv
 
 ## Environments
 
-**Production** (`main`): https://two-element-media-web.vercel.app
+**Production** (`main`): https://two-element-labs.vercel.app
 
-**Dev preview** (branch `dev`): https://two-element-media-web-git-dev-keagan139-gmailcoms-projects.vercel.app  
-Vercel creates this `…-git-dev-…vercel.app` URL after the `dev` branch is pushed. If the first deploy is still running, check the Vercel project `two-element-media-web`.
+**GitHub**: https://github.com/Keago88/two-element-labs
+
+**Dev preview** (branch `dev`): open the latest branch deployment in the [Two Element Labs Vercel project](https://vercel.com/keagan139-gmailcoms-projects/two-element-labs). Vercel creates a preview URL when the branch is pushed.
+
+Production and preview deployments use `NEXT_PUBLIC_SITE_URL=https://two-element-labs.vercel.app` for metadata, sitemap and robots URLs. The previous production address redirects to this address.
 
 The preview shows a small **DEV** badge (“Preview — not production”) when `VERCEL_GIT_COMMIT_REF` is `dev`, or when `NEXT_PUBLIC_SITE_ENV=dev` locally. Production (`main`) does not show the badge.
 
